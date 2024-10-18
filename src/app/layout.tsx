@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
-import "./globals.css";
+import "@/css/globals.css";
 
 export const metadata: Metadata = {
   title: "Email Trigger App",
