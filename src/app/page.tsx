@@ -10,6 +10,11 @@ export default function Home() {
           Dashboard
         </Link>
       </Button>
+      <Button>
+        <Link href="/business/template">
+          Template Builder
+        </Link>
+      </Button>
     </div>
   );
 }
