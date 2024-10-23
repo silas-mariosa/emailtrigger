@@ -15,6 +15,11 @@ export default function Home() {
           Template Builder
         </Link>
       </Button>
+      <Button>
+        <Link href="/business/landingbuilder">
+          Page Builder
+        </Link>
+      </Button>
     </div>
   );
 }

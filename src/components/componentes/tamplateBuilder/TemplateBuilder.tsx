@@ -27,6 +27,7 @@ interface BaseComponent {
     height?: string;
     link?: string;
     bold?: boolean;
+    italic?: boolean;
     underline?: boolean;
   };
 }
@@ -36,6 +37,7 @@ interface ContainerComponent extends BaseComponent {
   children: EmailComponent[];
   alignment: AlignmentType;
   backgroundColor: string;
+  itemsCenter: boolean;
 }
 
 interface TitleComponent extends BaseComponent {
@@ -44,6 +46,7 @@ interface TitleComponent extends BaseComponent {
 
 interface ParagraphComponent extends BaseComponent {
   type: 'paragraph';
+  itemsCenter?: boolean;
 }
 
 interface ImageComponent extends BaseComponent {
@@ -57,6 +60,7 @@ interface ButtonComponent extends BaseComponent {
 type EmailComponent = ContainerComponent | TitleComponent | ParagraphComponent | ImageComponent | ButtonComponent;
 
 interface EmailTemplate {
+  id?: string;
   subject: string;
   recipient: string;
   components: EmailComponent[];
@@ -81,6 +85,8 @@ export default function EmailTemplateEditor() {
       footerText: '© 2023 Sua Empresa. Todos os direitos reservados.'
     }
   })
+  const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -95,13 +101,14 @@ export default function EmailTemplateEditor() {
         fontSize: '16px',
         textAlign: 'left',
         bold: false,
+        italic: false,
         underline: false,
       }
     };
 
     switch (type) {
       case 'container':
-        return { ...baseComponent, children: [], alignment: 'column', backgroundColor: '#ffffff' } as ContainerComponent;
+        return { ...baseComponent, children: [], alignment: 'column', backgroundColor: '#ffffff', itemsCenter: false } as ContainerComponent;
       case 'button':
         return { ...baseComponent, style: { ...baseComponent.style, backgroundColor: '#007bff', link: '#' } } as ButtonComponent;
       case 'image':
@@ -121,7 +128,7 @@ export default function EmailTemplateEditor() {
       } else {
         return {
           ...prev,
-          components: prev.components.map(component => 
+          components: prev.components.map(component =>
             component.id === parentId && component.type === 'container' && (component as ContainerComponent).children.length < 4
               ? { ...component, children: [...(component as ContainerComponent).children, newComponent] }
               : component
@@ -133,7 +140,7 @@ export default function EmailTemplateEditor() {
 
   const handleUpdateComponent = (id: string, updates: Partial<EmailComponent>, parentId: string | null = null) => {
     setTemplate(prev => {
-      const updateComponent = (components: EmailComponent[]): EmailComponent[] => 
+      const updateComponent = (components: EmailComponent[]): EmailComponent[] =>
         components.map(component => {
           if (component.id === id) {
             return { ...component, ...updates } as EmailComponent;
@@ -149,7 +156,7 @@ export default function EmailTemplateEditor() {
       } else {
         return {
           ...prev,
-          components: prev.components.map(component => 
+          components: prev.components.map(component =>
             component.id === parentId && component.type === 'container'
               ? { ...component, children: updateComponent(component.children) }
               : component
@@ -161,7 +168,7 @@ export default function EmailTemplateEditor() {
 
   const handleDeleteComponent = (id: string, parentId: string | null = null) => {
     setTemplate(prev => {
-      const deleteFromArray = (components: EmailComponent[]): EmailComponent[] => 
+      const deleteFromArray = (components: EmailComponent[]): EmailComponent[] =>
         components.filter(component => {
           if (component.id === id) return false;
           if (component.type === 'container') {
@@ -175,7 +182,7 @@ export default function EmailTemplateEditor() {
       } else {
         return {
           ...prev,
-          components: prev.components.map(component => 
+          components: prev.components.map(component =>
             component.id === parentId && component.type === 'container'
               ? { ...component, children: deleteFromArray(component.children) }
               : component
@@ -204,7 +211,7 @@ export default function EmailTemplateEditor() {
       } else {
         return {
           ...prev,
-          components: prev.components.map(component => 
+          components: prev.components.map(component =>
             component.id === parentId && component.type === 'container'
               ? { ...component, children: moveInArray(component.children) }
               : component
@@ -223,6 +230,7 @@ export default function EmailTemplateEditor() {
         fontSize: style.fontSize,
         textAlign: style.textAlign,
         fontWeight: style.bold ? 'bold' : 'normal',
+        fontStyle: style.italic ? 'italic' : 'normal',
         textDecoration: style.underline ? 'underline' : 'none',
       }
     };
@@ -231,9 +239,9 @@ export default function EmailTemplateEditor() {
       switch (type) {
         case 'container':
           return (
-            <div className="border-2 border-dashed border-gray-300 p-4 my-4" style={{ backgroundColor: (component as ContainerComponent).backgroundColor }}>
+            <div className={`border-2 border-dashed border-gray-300 p-4 my-4 ${(component as ContainerComponent).itemsCenter ? 'items-center' : ''}`} style={{ backgroundColor: (component as ContainerComponent).backgroundColor }}>
               <h3 className="text-lg font-semibold mb-2">Container</h3>
-              <div className={`flex ${(component as ContainerComponent).alignment === 'row' ? 'flex-row' : 'flex-col'} gap-4`}>
+              <div className={`flex ${(component as ContainerComponent).alignment === 'row' ? 'flex-row' : 'flex-col'} gap-4 ${(component as ContainerComponent).itemsCenter ? 'items-center' : ''}`}>
                 {(component as ContainerComponent).children.map(child => (
                   <div key={child.id} className="flex-1">
                     {renderComponentEditor(child, id)}
@@ -261,7 +269,7 @@ export default function EmailTemplateEditor() {
         case 'title':
           return <h2 {...commonProps} className="font-bold my-2">{content}</h2>;
         case 'paragraph':
-          return <p {...commonProps} className="my-2">{content}</p>;
+          return <p {...commonProps} className={`my-2 ${(component as ParagraphComponent).itemsCenter ? 'text-center' : ''}`}>{content}</p>;
         case 'image':
           return (
             <div className='flex flex-col justify-center'>
@@ -319,7 +327,7 @@ export default function EmailTemplateEditor() {
                     <div className="space-y-2">
                       <Label htmlFor={`alignment-${id}`}>Alinhamento</Label>
                       <Select
-                        onValueChange={(value: AlignmentType) => 
+                        onValueChange={(value: AlignmentType) =>
                           handleUpdateComponent(id, { alignment: value } as Partial<ContainerComponent>, parentId)
                         }
                         defaultValue={(component as ContainerComponent).alignment}
@@ -359,7 +367,7 @@ export default function EmailTemplateEditor() {
                     <div className="space-y-2">
                       <Label htmlFor={`color-${id}`}>Cor do Texto</Label>
                       <Input
-                        
+
                         id={`color-${id}`}
                         type="color"
                         value={style.color}
@@ -416,6 +424,69 @@ export default function EmailTemplateEditor() {
                     </SelectContent>
                   </Select>
                 </div>
+                {(type === 'title' || type === 'paragraph' || type === 'button') && (
+                  <div className="flex space-x-2">
+                    <Button
+                      variant={style.bold ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleUpdateComponent(id, { style: { ...style, bold: !style.bold } }, parentId)}
+                    >
+                      B
+                    </Button>
+                    <Button
+                      variant={style.italic ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleUpdateComponent(id, { style: { ...style, italic: !style.italic } }, parentId)}
+                    >
+                      I
+                    </Button>
+                    <Button
+                      variant={style.underline ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleUpdateComponent(id, { style: { ...style, underline: !style.underline } }, parentId)}
+                    >
+                      U
+                    </Button>
+                  </div>
+                )}
+                {type === 'container' && (
+                  <div className="space-y-2">
+                    <Label htmlFor={`items-center-${id}`}>Alinhar Itens ao Centro</Label>
+                    <Select
+                      onValueChange={(value: string) =>
+                        handleUpdateComponent(id, { itemsCenter: value === 'true' } as Partial<ContainerComponent>, parentId)
+                      }
+                      defaultValue={(component as ContainerComponent).itemsCenter ? 'true' : 'false'}
+                    >
+                      <SelectTrigger id={`items-center-${id}`}>
+                        <SelectValue placeholder="Selecione o alinhamento vertical" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Ativado</SelectItem>
+                        <SelectItem value="false">Desativado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {type === 'paragraph' && (
+                  <div className="space-y-2">
+                    <Label htmlFor={`items-center-${id}`}>Alinhar Texto ao Centro</Label>
+                    <Select
+                      onValueChange={(value: string) =>
+                        handleUpdateComponent(id, { itemsCenter: value === 'true' } as Partial<ParagraphComponent>, parentId)
+                      }
+                      defaultValue={(component as ParagraphComponent).itemsCenter ? 'true' : 'false'}
+                    >
+                      <SelectTrigger id={`items-center-${id}`}>
+                        <SelectValue placeholder="Selecione o alinhamento vertical" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Ativado</SelectItem>
+                        <SelectItem value="false">Desativado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 {type === 'button' && (
                   <>
                     <div className="space-y-2">
@@ -485,20 +556,21 @@ export default function EmailTemplateEditor() {
         font-size: ${style.fontSize};
         text-align: ${style.textAlign};
         ${style.bold ? 'font-weight: bold;' : ''}
+        ${style.italic ? 'font-style: italic;' : ''}
         ${style.underline ? 'text-decoration: underline;' : ''}
       `;
 
       switch (type) {
         case 'container':
           return `
-            <div style="background-color: ${(component as ContainerComponent).backgroundColor}; padding: 10px; margin: 10px 0;">
+            <div style="background-color: ${(component as ContainerComponent).backgroundColor}; padding: 10px; margin: 10px 0; ${(component as ContainerComponent).itemsCenter ? 'display: flex; align-items: center;' : ''} ${(component as ContainerComponent).alignment === 'row' ? 'flex-direction: row;' : 'flex-direction: column;'}">
               ${(component as ContainerComponent).children.map(renderComponent).join('')}
             </div>
           `;
         case 'title':
           return `<h2 style="${commonStyle}">${content}</h2>`;
         case 'paragraph':
-          return `<p style="${commonStyle}">${content}</p>`;
+          return `<p style="${commonStyle} ${(component as ParagraphComponent).itemsCenter ? 'text-align: center;' : ''}">${content}</p>`;
         case 'image':
           return `<img src="${content}" alt="Email content" style="width: ${style.width}; height: ${style.height};" />`;
         case 'button':
@@ -523,7 +595,7 @@ export default function EmailTemplateEditor() {
         <title>${subject}</title>
       </head>
       <body style="background-color: ${style.backgroundColor}; margin: 0; padding: 20px; font-family: Arial, sans-serif;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px;">
+        <div style="max-width: auto; margin: 0 auto; background-color: #ffffff; padding: 20px;">
           ${components.map(renderComponent).join('')}
           <footer style="margin-top: 20px; text-align: center; font-size: 12px; color: #666;">
             ${style.footerText}
@@ -535,11 +607,46 @@ export default function EmailTemplateEditor() {
   };
 
   const handleSave = () => {
-    console.log('Template salvo:', template);
-    const htmlContent = generateEmailHtml(template);
+    const templateToSave = {
+      ...template,
+      id: currentTemplateId || generateId(),
+    };
+
+    setSavedTemplates(prev => {
+      const existingIndex = prev.findIndex(t => t.id === templateToSave.id);
+      if (existingIndex >= 0) {
+        const updatedTemplates = [...prev];
+        updatedTemplates[existingIndex] = templateToSave;
+        return updatedTemplates;
+      } else {
+        return [...prev, templateToSave];
+      }
+    });
+
+    setCurrentTemplateId(templateToSave.id);
+    console.log('Template salvo:', templateToSave);
+    const htmlContent = generateEmailHtml(templateToSave);
     console.log('HTML gerado:', htmlContent);
     // Aqui você pode implementar a lógica para salvar o template ou enviar o HTML
   }
+
+  const handleGeneratedHTML = () => {
+    const templateToSave = {
+      ...template,
+      id: currentTemplateId || generateId(),
+    };   
+
+    const htmlContent = generateEmailHtml(templateToSave);
+    console.log('HTML gerado:', htmlContent);
+  }
+
+  const loadTemplate = (templateId: string) => {
+    const templateToLoad = savedTemplates.find(t => t.id === templateId);
+    if (templateToLoad) {
+      setTemplate(templateToLoad);
+      setCurrentTemplateId(templateId);
+    }
+  };
 
   return (
     <div className="container mx-auto p-2">
@@ -567,6 +674,38 @@ export default function EmailTemplateEditor() {
               type="email"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="saved-templates">Templates Salvos</Label>
+            <Select onValueChange={loadTemplate} value={currentTemplateId || undefined}>
+              <SelectTrigger id="saved-templates">
+                <SelectValue placeholder="Selecione um template" />
+              </SelectTrigger>
+              <SelectContent>
+                {savedTemplates.map(t => (
+                  // Verifique se t.id não é undefined antes de usá-lo
+                  <SelectItem key={t.id} value={t.id ?? ''}>
+                    {t.subject || `Template ${t.id}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button onClick={() => {
+            setTemplate({
+              subject: '',
+              recipient: '',
+              components: [],
+              style: {
+                backgroundColor: '#ffffff',
+                textAlign: 'left',
+                footerText: '© 2023 Sua Empresa. Todos os direitos reservados.'
+              }
+            });
+            setCurrentTemplateId(null);
+          }}>
+            Novo Template
+          </Button>
           <div className="space-y-2">
             <Label>Adicionar Componente</Label>
             <div className="flex space-x-2">
@@ -626,8 +765,9 @@ export default function EmailTemplateEditor() {
             </PopoverContent>
           </Popover>
         </CardContent>
-        <CardFooter>
+        <CardFooter className='flex flex-row gap-4'>
           <Button onClick={handleSave} className="w-full">Salvar Template</Button>
+          <Button onClick={handleGeneratedHTML} className="w-full">Gerar HTML</Button>
         </CardFooter>
       </Card>
     </div>
