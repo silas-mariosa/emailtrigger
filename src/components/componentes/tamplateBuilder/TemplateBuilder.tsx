@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ChevronUp, ChevronDown, Trash2, Settings, Plus, AlignHorizontalJustifyCenterIcon, AlignVerticalJustifyCenterIcon } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { ChevronUp, ChevronDown, Trash2, Settings, Plus, AlignHorizontalJustifyCenterIcon, AlignVerticalJustifyCenterIcon, Link } from 'lucide-react'
 
 type ComponentType = 'container' | 'title' | 'paragraph' | 'image' | 'button'
 type AlignmentType = 'row' | 'column'
@@ -16,7 +17,7 @@ type AlignmentType = 'row' | 'column'
 interface BaseComponent {
   id: string;
   type: ComponentType;
-  content: string;
+  content: string | (string | TextLink)[];
   style: {
     color: string;
     fontFamily: string;
@@ -29,6 +30,9 @@ interface BaseComponent {
     bold?: boolean;
     italic?: boolean;
     underline?: boolean;
+    padding: string;
+    margin: string;
+    borderRadius: string;
   };
 }
 
@@ -44,9 +48,24 @@ interface TitleComponent extends BaseComponent {
   type: 'title';
 }
 
+interface TextLink {
+  id: string;
+  text: string;
+  url: string;
+  style: {
+    color: string;
+    fontFamily: string;
+    fontSize: string;
+    bold: boolean;
+    italic: boolean;
+    underline: boolean;
+  };
+}
+
 interface ParagraphComponent extends BaseComponent {
   type: 'paragraph';
   itemsCenter?: boolean;
+  content: (string | TextLink)[];
 }
 
 interface ImageComponent extends BaseComponent {
@@ -71,6 +90,38 @@ interface EmailTemplate {
   };
 }
 
+interface TextElement {
+  id: string;
+  type: 'text';
+  content: string;
+  style: TextStyle;
+}
+
+interface LinkElement {
+  id: string;
+  type: 'link';
+  content: string;
+  url: string;
+  style: TextStyle;
+}
+
+type ParagraphElement = TextElement | LinkElement;
+
+interface TextStyle {
+  color: string;
+  fontFamily: string;
+  fontSize: string;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+}
+
+interface ParagraphComponent extends BaseComponent {
+  type: 'paragraph';
+  itemsCenter?: boolean;
+  elements: ParagraphElement[];
+}
+
 const fontOptions = ['Arial', 'Helvetica', 'Times New Roman', 'Courier', 'Verdana', 'Georgia']
 const fontSizeOptions = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px']
 
@@ -87,6 +138,7 @@ export default function EmailTemplateEditor() {
   })
   const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string>('');
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -94,7 +146,7 @@ export default function EmailTemplateEditor() {
     const baseComponent: BaseComponent = {
       id: generateId(),
       type,
-      content,
+      content: '',
       style: {
         color: '#000000',
         fontFamily: 'Arial',
@@ -103,20 +155,23 @@ export default function EmailTemplateEditor() {
         bold: false,
         italic: false,
         underline: false,
+        padding: '0px',
+        margin: '0px',
+        borderRadius: '0px',
       }
     };
 
     switch (type) {
       case 'container':
-        return { ...baseComponent, children: [], alignment: 'column', backgroundColor: '#ffffff', itemsCenter: false } as ContainerComponent;
+        return { ...baseComponent, content: [], children: [], alignment: 'column', backgroundColor: '#ffffff', itemsCenter: false } as ContainerComponent;
       case 'button':
-        return { ...baseComponent, style: { ...baseComponent.style, backgroundColor: '#007bff', link: '#' } } as ButtonComponent;
+        return { ...baseComponent, content: '', style: { ...baseComponent.style, backgroundColor: '#007bff', link: '#' } } as ButtonComponent;
       case 'image':
-        return { ...baseComponent, style: { ...baseComponent.style, width: '100%', height: 'auto' } } as ImageComponent;
+        return { ...baseComponent, content: '', style: { ...baseComponent.style, width: '100%', height: 'auto' } } as ImageComponent;
       case 'title':
-        return { ...baseComponent } as TitleComponent;
+        return { ...baseComponent, content: '' } as TitleComponent;
       case 'paragraph':
-        return { ...baseComponent } as ParagraphComponent;
+        return { ...baseComponent, content: [] } as ParagraphComponent;
     }
   }
 
@@ -221,6 +276,242 @@ export default function EmailTemplateEditor() {
     });
   }
 
+  const handleAddTextElement = (paragraphId: string, parentId: string | null = null) => {
+    setTemplate(prev => {
+      const updateComponent = (components: EmailComponent[]): EmailComponent[] =>
+        components.map(component => {
+          if (component.id === paragraphId && component.type === 'paragraph') {
+            const newElement: TextElement = {
+              id: generateId(),
+              type: 'text',
+              content: 'Novo texto',
+              style: {
+                color: '#000000',
+                fontFamily: 'Arial',
+                fontSize: '16px',
+                bold: false,
+                italic: false,
+                underline: false,
+              }
+            };
+            return {
+              ...component,
+              elements: [...component.elements, newElement]
+            } as ParagraphComponent;
+          }
+          if (component.type === 'container') {
+            return { ...component, children: updateComponent(component.children) } as ContainerComponent;
+          }
+          return component;
+        });
+  
+      if (!parentId) {
+        return { ...prev, components: updateComponent(prev.components) };
+      } else {
+        return {
+          ...prev,
+          components: prev.components.map(component =>
+            component.id === parentId && component.type === 'container'
+              ? { ...component, children: updateComponent(component.children) }
+              : component
+          ) as EmailComponent[]
+        };
+      }
+    });
+  }
+
+  const handleAddLinkElement = (paragraphId: string, parentId: string | null = null) => {
+    setTemplate(prev => {
+      const updateComponent = (components: EmailComponent[]): EmailComponent[] =>
+        components.map(component => {
+          if (component.id === paragraphId && component.type === 'paragraph') {
+            const newElement: LinkElement = {
+              id: generateId(),
+              type: 'link',
+              content: 'Novo Link',
+              url: '#',
+              style: {
+                color: '#0000FF',
+                fontFamily: 'Arial',
+                fontSize: '16px',
+                bold: false,
+                italic: false,
+                underline: true,
+              }
+            };
+            return {
+              ...component,
+              elements: [...component.elements, newElement]
+            } as ParagraphComponent;
+          }
+          if (component.type === 'container') {
+            return { ...component, children: updateComponent(component.children) } as ContainerComponent;
+          }
+          return component;
+        });
+  
+      if (!parentId) {
+        return { ...prev, components: updateComponent(prev.components) };
+      } else {
+        return {
+          ...prev,
+          components: prev.components.map(component =>
+            component.id === parentId && component.type === 'container'
+              ? { ...component, children: updateComponent(component.children) }
+              : component
+          ) as EmailComponent[]
+        };
+      }
+    });
+  }
+
+  const handleUpdateParagraphElement = (
+    paragraphId: string,
+    elementId: string,
+    updates: Partial<ParagraphElement>,
+    parentId: string | null = null
+  ) => {
+    setTemplate(prev => {
+      const updateComponent = (components: EmailComponent[]): EmailComponent[] =>
+        components.map(component => {
+          if (component.id === paragraphId && component.type === 'paragraph') {
+            return {
+              ...component,
+              elements: component.elements.map(element =>
+                element.id === elementId ? { ...element, ...updates } : element
+              )
+            } as ParagraphComponent;
+          }
+          if (component.type === 'container') {
+            return { ...component, children: updateComponent(component.children) } as ContainerComponent;
+          }
+          return component;
+        });
+  
+      if (!parentId) {
+        return { ...prev, components: updateComponent(prev.components) };
+      } else {
+        return {
+          ...prev,
+          components: prev.components.map(component =>
+            component.id === parentId && component.type === 'container'
+              ? { ...component, children: updateComponent(component.children) }
+              : component
+          ) as EmailComponent[]
+        };
+      }
+    });
+  }
+
+  const handleAddTextLink = (paragraphId: string, parentId: string | null = null) => {
+    setTemplate(prev => {
+      const updateComponent = (components: EmailComponent[]): EmailComponent[] =>
+        components.map(component => {
+          if (component.id === paragraphId && component.type === 'paragraph') {
+            const newLink: TextLink = {
+              id: generateId(),
+              text: 'Novo Link',
+              url: '#',
+              style: {
+                color: '#0000FF',
+                fontFamily: 'inherit',
+                fontSize: 'inherit',
+                bold: false,
+                italic: false,
+                underline: true,
+              }
+            };
+            return {
+              ...component,
+              content: [...component.content, newLink]
+            } as ParagraphComponent;
+          }
+          if (component.type === 'container') {
+            return { ...component, children: updateComponent(component.children) } as ContainerComponent;
+          }
+          return component;
+        });
+
+      if (!parentId) {
+        return { ...prev, components: updateComponent(prev.components) };
+      } else {
+        return {
+          ...prev,
+          components: prev.components.map(component =>
+            component.id === parentId && component.type === 'container'
+              ? { ...component, children: updateComponent(component.children) }
+              : component
+          ) as EmailComponent[]
+        };
+      }
+    });
+  }
+
+  const handleUpdateTextLink = (paragraphId: string, linkId: string, updates: Partial<TextLink>, parentId: string | null = null) => {
+    setTemplate(prev => {
+      const updateComponent = (components: EmailComponent[]): EmailComponent[] =>
+        components.map(component => {
+          if (component.id === paragraphId && component.type === 'paragraph') {
+            return {
+              ...component,
+              content: component.content.map(item =>
+                typeof item !== 'string' && item.id === linkId ? { ...item, ...updates } : item
+              )
+            } as ParagraphComponent;
+          }
+          if (component.type === 'container') {
+            return { ...component, children: updateComponent(component.children) } as ContainerComponent;
+          }
+          return component;
+        });
+
+      if (!parentId) {
+        return { ...prev, components: updateComponent(prev.components) };
+      } else {
+        return {
+          ...prev,
+          components: prev.components.map(component =>
+            component.id === parentId && component.type === 'container'
+              ? { ...component, children: updateComponent(component.children) }
+              : component
+          ) as EmailComponent[]
+        };
+      }
+    });
+  }
+
+  const handleAddText = (paragraphId: string, parentId: string | null = null) => {
+    setTemplate(prev => {
+      const updateComponent = (components: EmailComponent[]): EmailComponent[] =>
+        components.map(component => {
+          if (component.id === paragraphId && component.type === 'paragraph') {
+            return {
+              ...component,
+              content: [...component.content, 'Novo texto']
+            } as ParagraphComponent;
+          }
+          if (component.type === 'container') {
+            return { ...component, children: updateComponent(component.children) } as ContainerComponent;
+          }
+          return component;
+        });
+
+      if (!parentId) {
+        return { ...prev, components: updateComponent(prev.components) };
+      } else {
+        return {
+          ...prev,
+          components: prev.components.map(component =>
+            component.id === parentId && component.type === 'container'
+              ? { ...component, children: updateComponent(component.children) }
+              : component
+          ) as EmailComponent[]
+        };
+      }
+    });
+  }
+
+
   const renderComponentEditor = (component: EmailComponent, parentId: string | null = null) => {
     const { id, type, content, style } = component;
     const commonProps = {
@@ -232,6 +523,10 @@ export default function EmailTemplateEditor() {
         fontWeight: style.bold ? 'bold' : 'normal',
         fontStyle: style.italic ? 'italic' : 'normal',
         textDecoration: style.underline ? 'underline' : 'none',
+        padding: style.padding,
+        margin: style.margin,
+        borderRadius: style.borderRadius,
+        backgroundColor: style.backgroundColor,
       }
     };
 
@@ -269,18 +564,148 @@ export default function EmailTemplateEditor() {
         case 'title':
           return <h2 {...commonProps} className="font-bold my-2">{content}</h2>;
         case 'paragraph':
-          return <p {...commonProps} className={`my-2 ${(component as ParagraphComponent).itemsCenter ? 'text-center' : ''}`}>{content}</p>;
+          const paragraphComponent = component as ParagraphComponent;
+          return (
+            <div {...commonProps} className={`my-2 ${paragraphComponent.itemsCenter ? 'text-center' : ''}`}>
+              {paragraphComponent.elements.map((element, index) => (
+                <span key={element.id}>
+                  {element.type === 'text' ? (
+                    <span style={{
+                      color: element.style.color,
+                      fontFamily: element.style.fontFamily,
+                      fontSize: element.style.fontSize,
+                      fontWeight: element.style.bold ? 'bold' : 'normal',
+                      fontStyle: element.style.italic ? 'italic' : 'normal',
+                      textDecoration: element.style.underline ? 'underline' : 'none',
+                    }}>
+                      {element.content}
+                    </span>
+                  ) : (
+                    <a href={element.url} style={{
+                      color: element.style.color,
+                      fontFamily: element.style.fontFamily,
+                      fontSize: element.style.fontSize,
+                      fontWeight: element.style.bold ? 'bold' : 'normal',
+                      fontStyle: element.style.italic ? 'italic' : 'normal',
+                      textDecoration: element.style.underline ? 'underline' : 'none',
+                    }}>
+                      {element.content}
+                    </a>
+                  )}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm"><Settings className="h-4 w-4" /></Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                      <div className="grid gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={`element-content-${element.id}`}>Conteúdo</Label>
+                          <Input
+                            id={`element-content-${element.id}`}
+                            value={element.content}
+                            onChange={(e) => handleUpdateParagraphElement(id, element.id, { content: e.target.value }, parentId)}
+                          />
+                        </div>
+                        {element.type === 'link' && (
+                          <div className="space-y-2">
+                            <Label htmlFor={`element-url-${element.id}`}>URL</Label>
+                            <Input
+                              id={`element-url-${element.id}`}
+                              value={element.url}
+                              onChange={(e) => handleUpdateParagraphElement(id, element.id, { url: e.target.value }, parentId)}
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          <Label htmlFor={`element-color-${element.id}`}>Cor</Label>
+                          <Input
+                            id={`element-color-${element.id}`}
+                            type="color"
+                            value={element.style.color}
+                            onChange={(e) => handleUpdateParagraphElement(id, element.id, { style: { ...element.style, color: e.target.value } }, parentId)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`element-font-${element.id}`}>Fonte</Label>
+                          <Select
+                            onValueChange={(value) => handleUpdateParagraphElement(id, element.id, { style: { ...element.style, fontFamily: value } }, parentId)}
+                            defaultValue={element.style.fontFamily}
+                          >
+                            <SelectTrigger id={`element-font-${element.id}`}>
+                              <SelectValue placeholder="Selecione uma fonte" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fontOptions.map((font) => (
+                                <SelectItem key={font} value={font}>{font}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`element-font-size-${element.id}`}>Tamanho da Fonte</Label>
+                          <Select
+                            onValueChange={(value) => handleUpdateParagraphElement(id, element.id, { style: { ...element.style, fontSize: value } }, parentId)}
+                            defaultValue={element.style.fontSize}
+                          >
+                            <SelectTrigger id={`element-font-size-${element.id}`}>
+                              <SelectValue placeholder="Selecione um tamanho" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fontSizeOptions.map((size) => (
+                                <SelectItem key={size} value={size}>{size}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant={element.style.bold ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleUpdateParagraphElement(id, element.id, { style: { ...element.style, bold: !element.style.bold } }, parentId)}
+                          >
+                            B
+                          </Button>
+                          <Button
+                            variant={element.style.italic ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleUpdateParagraphElement(id, element.id, { style: { ...element.style, italic: !element.style.italic } }, parentId)}
+                          >
+                            I
+                          </Button>
+                          <Button
+                            variant={element.style.underline ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleUpdateParagraphElement(id, element.id, { style: { ...element.style, underline: !element.style.underline } }, parentId)}
+                          >
+                            U
+                          </Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </span>
+              ))}
+              <div className="mt-2">
+                <Button onClick={() => handleAddTextElement(id, parentId)} size="sm" variant="outline">
+                  <Plus className="mr-2 h-4 w-4" /> Adicionar Texto
+                </Button>
+                <Button onClick={() => handleAddLinkElement(id, parentId)} size="sm" variant="outline">
+                  <Plus className="mr-2 h-4 w-4" /> Adicionar Link
+                </Button>
+              </div>
+            </div>
+          );
         case 'image':
           return (
             <div className='flex flex-col justify-center'>
-              <img src={content} alt="Conteúdo do email" style={{ width: style.width, height: style.height }} className="my-2" />
+              <img src={content as string} alt="Conteúdo do email" style={{ width: style.width, height: style.height }} className="my-2" />
             </div>
           );
         case 'button':
           return (
             <div style={{ textAlign: style.textAlign }}>
               <a href={style.link} target="_blank" rel="noopener noreferrer">
-                <button style={{ ...commonProps.style, backgroundColor: style.backgroundColor }} className="px-4 py-2 rounded my-4 text-white">
+                <button {...commonProps} className="px-4 py-2 rounded my-4 text-white">
                   {content}
                 </button>
               </a>
@@ -292,7 +717,7 @@ export default function EmailTemplateEditor() {
     })();
 
     return (
-      <div key={id} className="relative group border p-2 my-2">
+      <div key={id} className="relative  group border p-2 my-2" style={commonProps.style}>
         {componentContent}
         <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <Popover>
@@ -307,7 +732,7 @@ export default function EmailTemplateEditor() {
                     {type === 'paragraph' ? (
                       <Textarea
                         id={`content-${id}`}
-                        value={content}
+                        value={content as string}
                         onChange={(e) => handleUpdateComponent(id, { content: e.target.value }, parentId)}
                         placeholder="Conteúdo do parágrafo"
                         rows={4}
@@ -315,72 +740,42 @@ export default function EmailTemplateEditor() {
                     ) : (
                       <Input
                         id={`content-${id}`}
-                        value={content}
+                        value={content as string}
                         onChange={(e) => handleUpdateComponent(id, { content: e.target.value }, parentId)}
                         placeholder={type === 'image' ? 'URL da imagem' : 'Conteúdo do componente'}
                       />
                     )}
                   </div>
                 )}
-                {type === 'container' && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor={`alignment-${id}`}>Alinhamento</Label>
-                      <Select
-                        onValueChange={(value: AlignmentType) =>
-                          handleUpdateComponent(id, { alignment: value } as Partial<ContainerComponent>, parentId)
-                        }
-                        defaultValue={(component as ContainerComponent).alignment}
-                      >
-                        <SelectTrigger id={`alignment-${id}`}>
-                          <SelectValue placeholder="Selecione o alinhamento" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="row">
-                            <div className="flex items-center">
-                              <AlignHorizontalJustifyCenterIcon className="mr-2 h-4 w-4" />
-                              Em linha
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="column">
-                            <div className="flex items-center">
-                              <AlignVerticalJustifyCenterIcon className="mr-2 h-4 w-4" />
-                              Em coluna
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`bg-color-${id}`}>Cor de Fundo do Container</Label>
+                {type === 'paragraph' && (component as ParagraphComponent).content
+                  .filter((item): item is TextLink => typeof item !== 'string')
+                  .map(link => (
+                    <div key={link.id} className="space-y-2">
+                      <Label htmlFor={`link-text-${link.id}`}>Texto do Link</Label>
                       <Input
-                        id={`bg-color-${id}`}
-                        type="color"
-                        value={(component as ContainerComponent).backgroundColor}
-                        onChange={(e) => handleUpdateComponent(id, { backgroundColor: e.target.value } as Partial<ContainerComponent>, parentId)}
+                        id={`link-text-${link.id}`}
+                        value={link.text}
+                        onChange={(e) => handleUpdateTextLink(id, link.id, { text: e.target.value }, parentId)}
                       />
-                    </div>
-                  </>
-                )}
-                {type !== 'image' && type !== 'container' && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor={`color-${id}`}>Cor do Texto</Label>
+                      <Label htmlFor={`link-url-${link.id}`}>URL do Link</Label>
                       <Input
-
-                        id={`color-${id}`}
-                        type="color"
-                        value={style.color}
-                        onChange={(e) => handleUpdateComponent(id, { style: { ...style, color: e.target.value } }, parentId)}
+                        id={`link-url-${link.id}`}
+                        value={link.url}
+                        onChange={(e) => handleUpdateTextLink(id, link.id, { url: e.target.value }, parentId)}
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`font-${id}`}>Fonte</Label>
+                      <Label htmlFor={`link-color-${link.id}`}>Cor do Link</Label>
+                      <Input
+                        id={`link-color-${link.id}`}
+                        type="color"
+                        value={link.style.color}
+                        onChange={(e) => handleUpdateTextLink(id, link.id, { style: { ...link.style, color: e.target.value } }, parentId)}
+                      />
+                      <Label htmlFor={`link-font-${link.id}`}>Fonte do Link</Label>
                       <Select
-                        onValueChange={(value) => handleUpdateComponent(id, { style: { ...style, fontFamily: value } }, parentId)}
-                        defaultValue={style.fontFamily}
+                        onValueChange={(value) => handleUpdateTextLink(id, link.id, { style: { ...link.style, fontFamily: value } }, parentId)}
+                        defaultValue={link.style.fontFamily}
                       >
-                        <SelectTrigger id={`font-${id}`}>
+                        <SelectTrigger id={`link-font-${link.id}`}>
                           <SelectValue placeholder="Selecione uma fonte" />
                         </SelectTrigger>
                         <SelectContent>
@@ -389,14 +784,12 @@ export default function EmailTemplateEditor() {
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`font-size-${id}`}>Tamanho da Fonte</Label>
+                      <Label htmlFor={`link-font-size-${link.id}`}>Tamanho da Fonte do Link</Label>
                       <Select
-                        onValueChange={(value) => handleUpdateComponent(id, { style: { ...style, fontSize: value } }, parentId)}
-                        defaultValue={style.fontSize}
+                        onValueChange={(value) => handleUpdateTextLink(id, link.id, { style: { ...link.style, fontSize: value } }, parentId)}
+                        defaultValue={link.style.fontSize}
                       >
-                        <SelectTrigger id={`font-size-${id}`}>
+                        <SelectTrigger id={`link-font-size-${link.id}`}>
                           <SelectValue placeholder="Selecione um tamanho" />
                         </SelectTrigger>
                         <SelectContent>
@@ -405,9 +798,84 @@ export default function EmailTemplateEditor() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant={link.style.bold ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleUpdateTextLink(id, link.id, { style: { ...link.style, bold: !link.style.bold } }, parentId)}
+                        >
+                          B
+                        </Button>
+                        <Button
+                          variant={link.style.italic ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleUpdateTextLink(id, link.id, { style: { ...link.style, italic: !link.style.italic } }, parentId)}
+                        >
+                          I
+                        </Button>
+                        <Button
+                          variant={link.style.underline ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleUpdateTextLink(id, link.id, { style: { ...link.style, underline: !link.style.underline } }, parentId)}
+                        >
+                          U
+                        </Button>
+                      </div>
                     </div>
-                  </>
+                  ))}
+                {type === 'button' && (
+                  <div className="space-y-2">
+                    <Label htmlFor={`link-${id}`}>Link</Label>
+                    <Input
+                      id={`link-${id}`}
+                      type="url"
+                      value={style.link}
+                      onChange={(e) => handleUpdateComponent(id, { style: { ...style, link: e.target.value } }, parentId)}
+                      placeholder="https://exemplo.com"
+                    />
+                  </div>
                 )}
+                <div className="space-y-2">
+                  <Label htmlFor={`color-${id}`}>Cor do Texto</Label>
+                  <Input
+                    id={`color-${id}`}
+                    type="color"
+                    value={style.color}
+                    onChange={(e) => handleUpdateComponent(id, { style: { ...style, color: e.target.value } }, parentId)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`font-${id}`}>Fonte</Label>
+                  <Select
+                    onValueChange={(value) => handleUpdateComponent(id, { style: { ...style, fontFamily: value } }, parentId)}
+                    defaultValue={style.fontFamily}
+                  >
+                    <SelectTrigger id={`font-${id}`}>
+                      <SelectValue placeholder="Selecione uma fonte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fontOptions.map((font) => (
+                        <SelectItem key={font} value={font}>{font}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`font-size-${id}`}>Tamanho da Fonte</Label>
+                  <Select
+                    onValueChange={(value) => handleUpdateComponent(id, { style: { ...style, fontSize: value } }, parentId)}
+                    defaultValue={style.fontSize}
+                  >
+                    <SelectTrigger id={`font-size-${id}`}>
+                      <SelectValue placeholder="Selecione um tamanho" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fontSizeOptions.map((size) => (
+                        <SelectItem key={size} value={size}>{size}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor={`align-${id}`}>Alinhamento</Label>
                   <Select
@@ -424,31 +892,29 @@ export default function EmailTemplateEditor() {
                     </SelectContent>
                   </Select>
                 </div>
-                {(type === 'title' || type === 'paragraph' || type === 'button') && (
-                  <div className="flex space-x-2">
-                    <Button
-                      variant={style.bold ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleUpdateComponent(id, { style: { ...style, bold: !style.bold } }, parentId)}
-                    >
-                      B
-                    </Button>
-                    <Button
-                      variant={style.italic ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleUpdateComponent(id, { style: { ...style, italic: !style.italic } }, parentId)}
-                    >
-                      I
-                    </Button>
-                    <Button
-                      variant={style.underline ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleUpdateComponent(id, { style: { ...style, underline: !style.underline } }, parentId)}
-                    >
-                      U
-                    </Button>
-                  </div>
-                )}
+                <div className="flex space-x-2">
+                  <Button
+                    variant={style.bold ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleUpdateComponent(id, { style: { ...style, bold: !style.bold } }, parentId)}
+                  >
+                    B
+                  </Button>
+                  <Button
+                    variant={style.italic ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleUpdateComponent(id, { style: { ...style, italic: !style.italic } }, parentId)}
+                  >
+                    I
+                  </Button>
+                  <Button
+                    variant={style.underline ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleUpdateComponent(id, { style: { ...style, underline: !style.underline } }, parentId)}
+                  >
+                    U
+                  </Button>
+                </div>
                 {type === 'container' && (
                   <div className="space-y-2">
                     <Label htmlFor={`items-center-${id}`}>Alinhar Itens ao Centro</Label>
@@ -487,29 +953,6 @@ export default function EmailTemplateEditor() {
                     </Select>
                   </div>
                 )}
-                {type === 'button' && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor={`link-${id}`}>Link</Label>
-                      <Input
-                        id={`link-${id}`}
-                        type="url"
-                        value={style.link}
-                        onChange={(e) => handleUpdateComponent(id, { style: { ...style, link: e.target.value } }, parentId)}
-                        placeholder="https://exemplo.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`bg-color-${id}`}>Cor de Fundo</Label>
-                      <Input
-                        id={`bg-color-${id}`}
-                        type="color"
-                        value={style.backgroundColor}
-                        onChange={(e) => handleUpdateComponent(id, { style: { ...style, backgroundColor: e.target.value } }, parentId)}
-                      />
-                    </div>
-                  </>
-                )}
                 {type === 'image' && (
                   <>
                     <div className="space-y-2">
@@ -534,6 +977,42 @@ export default function EmailTemplateEditor() {
                     </div>
                   </>
                 )}
+                <div className="space-y-2">
+                  <Label htmlFor={`padding-${id}`}>Padding</Label>
+                  <Input
+                    id={`padding-${id}`}
+                    value={style.padding}
+                    onChange={(e) => handleUpdateComponent(id, { style: { ...style, padding: e.target.value } }, parentId)}
+                    placeholder="10px 20px"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`margin-${id}`}>Margin</Label>
+                  <Input
+                    id={`margin-${id}`}
+                    value={style.margin}
+                    onChange={(e) => handleUpdateComponent(id, { style: { ...style, margin: e.target.value } }, parentId)}
+                    placeholder="10px 20px"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`border-radius-${id}`}>Border Radius</Label>
+                  <Input
+                    id={`border-radius-${id}`}
+                    value={style.borderRadius}
+                    onChange={(e) => handleUpdateComponent(id, { style: { ...style, borderRadius: e.target.value } }, parentId)}
+                    placeholder="5px"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`bg-color-${id}`}>Cor de Fundo</Label>
+                  <Input
+                    id={`bg-color-${id}`}
+                    type="color"
+                    value={style.backgroundColor}
+                    onChange={(e) => handleUpdateComponent(id, { style: { ...style, backgroundColor: e.target.value } }, parentId)}
+                  />
+                </div>
               </div>
             </PopoverContent>
           </Popover>
@@ -558,25 +1037,47 @@ export default function EmailTemplateEditor() {
         ${style.bold ? 'font-weight: bold;' : ''}
         ${style.italic ? 'font-style: italic;' : ''}
         ${style.underline ? 'text-decoration: underline;' : ''}
+        padding: ${style.padding};
+        margin: ${style.margin};
+        border-radius: ${style.borderRadius};
+        background-color: ${style.backgroundColor};
       `;
 
       switch (type) {
         case 'container':
           return `
-            <div style="background-color: ${(component as ContainerComponent).backgroundColor}; padding: 10px; margin: 10px 0; ${(component as ContainerComponent).itemsCenter ? 'display: flex; align-items: center;' : ''} ${(component as ContainerComponent).alignment === 'row' ? 'flex-direction: row;' : 'flex-direction: column;'}">
+            <div style="${commonStyle} ${(component as ContainerComponent).itemsCenter ? 'display: flex; align-items: center;' : ''} ${(component as ContainerComponent).alignment === 'row' ? 'flex-direction: row;' : 'flex-direction: column;'}">
               ${(component as ContainerComponent).children.map(renderComponent).join('')}
             </div>
           `;
         case 'title':
           return `<h2 style="${commonStyle}">${content}</h2>`;
         case 'paragraph':
-          return `<p style="${commonStyle} ${(component as ParagraphComponent).itemsCenter ? 'text-align: center;' : ''}">${content}</p>`;
+          const paragraphComponent = component as ParagraphComponent;
+          const paragraphContent = Array.isArray(paragraphComponent.content)
+            ? paragraphComponent.content.map(item => {
+                if (typeof item === 'string') {
+                  return item;
+                } else {
+                  const linkStyle = `
+                    color: ${item.style.color};
+                    font-family: ${item.style.fontFamily};
+                    font-size: ${item.style.fontSize};
+                    ${item.style.bold ? 'font-weight: bold;' : ''}
+                    ${item.style.italic ? 'font-style: italic;' : ''}
+                    ${item.style.underline ? 'text-decoration: underline;' : ''}
+                  `;
+                  return `<a href="${item.url}" style="${linkStyle}">${item.text}</a>`;
+                }
+              }).join('')
+            : paragraphComponent.content;
+          return `<p style="${commonStyle} ${paragraphComponent.itemsCenter ? 'text-align: center;' : ''}">${paragraphContent}</p>`;
         case 'image':
           return `<img src="${content}" alt="Email content" style="width: ${style.width}; height: ${style.height};" />`;
         case 'button':
           return `
             <a href="${style.link}" style="text-decoration: none;">
-              <button style="${commonStyle} background-color: ${style.backgroundColor}; border: none; padding: 10px 20px; cursor: pointer;">
+              <button style="${commonStyle} border: none; padding: 10px 20px; cursor: pointer;">
                 ${content}
               </button>
             </a>
@@ -595,8 +1096,8 @@ export default function EmailTemplateEditor() {
         <title>${subject}</title>
       </head>
       <body style="background-color: ${style.backgroundColor}; margin: 0; padding: 20px; font-family: Arial, sans-serif;">
-        <div style="max-width: auto; margin: 0 auto; background-color: #ffffff; padding: 20px;">
-          ${components.map(renderComponent).join('')}
+        <div style="max-width: auto; margin: 0 auto;         background-color: #ffffff; padding: 20px;">
+                                        ${components.map(renderComponent).join('')}
           <footer style="margin-top: 20px; text-align: center; font-size: 12px; color: #666;">
             ${style.footerText}
           </footer>
@@ -627,17 +1128,11 @@ export default function EmailTemplateEditor() {
     console.log('Template salvo:', templateToSave);
     const htmlContent = generateEmailHtml(templateToSave);
     console.log('HTML gerado:', htmlContent);
-    // Aqui você pode implementar a lógica para salvar o template ou enviar o HTML
   }
 
-  const handleGeneratedHTML = () => {
-    const templateToSave = {
-      ...template,
-      id: currentTemplateId || generateId(),
-    };   
-
-    const htmlContent = generateEmailHtml(templateToSave);
-    console.log('HTML gerado:', htmlContent);
+  const handlePreview = () => {
+    const htmlContent = generateEmailHtml(template);
+    setPreviewHtml(htmlContent);
   }
 
   const loadTemplate = (templateId: string) => {
@@ -682,7 +1177,6 @@ export default function EmailTemplateEditor() {
               </SelectTrigger>
               <SelectContent>
                 {savedTemplates.map(t => (
-                  // Verifique se t.id não é undefined antes de usá-lo
                   <SelectItem key={t.id} value={t.id ?? ''}>
                     {t.subject || `Template ${t.id}`}
                   </SelectItem>
@@ -767,7 +1261,17 @@ export default function EmailTemplateEditor() {
         </CardContent>
         <CardFooter className='flex flex-row gap-4'>
           <Button onClick={handleSave} className="w-full">Salvar Template</Button>
-          <Button onClick={handleGeneratedHTML} className="w-full">Gerar HTML</Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button onClick={handlePreview} className="w-full">Visualizar</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-auto">
+              <DialogHeader>
+                <DialogTitle>Prévia do E-mail</DialogTitle>
+              </DialogHeader>
+              <iframe srcDoc={previewHtml} className="w-full h-[80vh] border-0" />
+            </DialogContent>
+          </Dialog>
         </CardFooter>
       </Card>
     </div>
