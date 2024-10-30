@@ -142,7 +142,7 @@ export const htmlTemplate = `
 
     <!-- Chamada para Ação -->
     <p>
-      <a href="https://www.smartgabinete.com.br/login/singup" target="_blank" class="cta-button">Experimente por 30 dias grátis</a>
+      <a href="https://www.smartgabinete.com.br" target="_blank" class="cta-button">Experimente por 30 dias grátis</a>
     </p>
   </div>
 
