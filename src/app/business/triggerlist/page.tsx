@@ -3,9 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import nodemailer from 'nodemailer';
-import candidate_List from '@/data/candidatosComDados.json'
 import { htmlTemplate } from '@/components/componentes/TemplateEmail/tampletes';
-
 export interface Root {
     cnpj: string
     candidato: Candidato
@@ -47,6 +45,7 @@ interface EmailLog {
 
 const EMAIL_BATCH_SIZE = 500;
 const BATCH_DELAY = 60000;
+const candidate_List: Root[] = JSON.parse(JSON.stringify(require('@/data/candidatosComDados.json')));
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -103,13 +102,14 @@ async function sendEmail({to, subject, candidato}: Root) {
       situacao: 'Enviado com sucesso'
     });
   } catch (error) {
+    const err = error as Error;
     console.error(`Erro ao enviar para ${to}:`, error);
 
     // Registrar email como falha no envio
     logEmail({
       email: to,
       dataEnvio: new Date().toISOString(),
-      situacao: `Erro: ${error.message}`
+      situacao: `Erro: ${err.message}`
     });
   }
 }
