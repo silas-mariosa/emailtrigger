@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -37,7 +37,11 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchEmailStatus();
+    fetchEmailStatus(); // Fetch initial status
+
+    const intervalId = setInterval(fetchEmailStatus, 5000); // Fetch every 5 seconds
+
+    return () => clearInterval(intervalId); // Clear interval on component unmount
   }, []);
 
   const handleEmailSending = async (action: 'start' | 'pause' | 'resume') => {
