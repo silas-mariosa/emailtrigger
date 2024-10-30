@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/css/globals.css";
+import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Email Trigger App",
@@ -16,7 +17,9 @@ export default function RootLayout({
       <body
         className=''
       >
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

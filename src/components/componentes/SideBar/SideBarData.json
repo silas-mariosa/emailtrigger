@@ -5,32 +5,26 @@
 			"icon": "Home",
 			"label": "Dashboard",
 			"disable": false,
-			"link": "/dashboard"
+			"link": "/business/dashboard"
 		},
 		{
-			"icon": "ShoppingCart",
+			"icon": "LineChart",
 			"label": "Orders",
 			"disable": false,
-			"link": "/orders"
+			"link": "/business/template"
 		},
 		{
 			"icon": "Package",
 			"label": "Products",
 			"disable": false,
-			"link": "/products"
+			"link": "/business/landingbuilder"
 		},
 		{
 			"icon": "Users2",
 			"label": "Customers",
 			"disable": false,
-			"link": "/customers"
-		},
-		{
-			"icon": "LineChart",
-			"label": "Analytics",
-			"disable": false,
-			"link": "/analytics"
-		}
+			"link": "/business/triggerlist"
+		}		
 	],
 	"buttonBotton": [
 		{

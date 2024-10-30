@@ -142,7 +142,7 @@ export const htmlTemplate = `
 
     <!-- Chamada para Ação -->
     <p>
-      <a href="https://www.smartgabinete.com.br/teste-gratis" target="_blank" class="cta-button">Experimente por 30 dias grátis</a>
+      <a href="https://www.smartgabinete.com.br/login/singup" target="_blank" class="cta-button">Experimente por 30 dias grátis</a>
     </p>
   </div>
 
@@ -151,9 +151,8 @@ export const htmlTemplate = `
     <p>© 2024 Smart Gabinete. Todos os direitos reservados.</p>
     <p>
       <a href="https://www.smartgabinete.com.br/">Página Inicial</a> | 
-      <a href="https://www.smartgabinete.com.br/suporte">Suporte</a> | 
-      <a href="https://www.smartgabinete.com.br/termos">Termos de Uso</a> | 
-      <a href="https://www.smartgabinete.com.br/privacidade">Política de Privacidade</a>
+      <a href="https://www.smartgabinete.com.br/login">login</a> | 
+      <a href="https://www.smartgabinete.com.br/login/singup">Cadastrar</a>
     </p>
   </div>
 </div>
