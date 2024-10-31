@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
+import { EmailLog } from '../send-emails/route';
 
 const dataFilePath = path.join(process.cwd(), 'src', 'data', 'emailsEnviados.json');
 
@@ -11,7 +12,7 @@ async function loadEmailsData() {
   return data;
 }
 
-async function saveEmailsData(emailsData: any) {
+async function saveEmailsData(emailsData: EmailLog) {
   fs.writeFileSync(dataFilePath, JSON.stringify(emailsData, null, 2), 'utf-8');
 }
 
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
   }
 
   const emailsData = await loadEmailsData();
-  const emailEntry = emailsData.find((e: any) => e.email === email);
+  const emailEntry = emailsData.find((e: EmailLog) => e.email === email);
 
   if (emailEntry && emailEntry.status !== 'Visualizado') {
     emailEntry.status = 'Visualizado';

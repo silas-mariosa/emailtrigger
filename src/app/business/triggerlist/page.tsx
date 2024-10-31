@@ -33,6 +33,7 @@ export default function Dashboard() {
         description: 'Houve um problema ao carregar os dados. Tente novamente.',
         action: <ToastAction altText="Tentar novamente" onClick={fetchEmailStatus}>Tentar novamente</ToastAction>,
       });
+      console.error(err);
     }
   };
 
@@ -62,6 +63,7 @@ export default function Dashboard() {
         description: 'Houve um problema ao processar a ação. Tente novamente.',
         action: <ToastAction altText="Tentar novamente" onClick={() => handleEmailSending(action)}>Tentar novamente</ToastAction>,
       });
+      console.log(err);
     } finally {
       if (action !== 'start') setIsSending(false); // Reset state after pause/resume
     }
