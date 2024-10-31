@@ -11,10 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Image from 'next/image'
 
 type ComponentType = 'paragraph' | 'button' | 'image' | 'video' | 'carousel' | 'form' | 'table' | 'container'
 
@@ -360,7 +360,7 @@ function ContainerComponent({ container, containerIndex, onAddComponent, onUpdat
 function Header({ config, onConfigUpdate }: { config: HeaderConfig; onConfigUpdate: (newConfig: HeaderConfig) => void }) {
   return (
     <header className="bg-primary text-primary-foreground p-4 flex justify-between items-center">
-      <img src={config.logo} alt="Logo" className="h-8" />
+      <Image src={config.logo} alt="Logo" className="h-8" />
       <nav>
         {config.navItems.map((item, index) => (
           item.subItems ? (

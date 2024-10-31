@@ -43,7 +43,6 @@ export interface EmailLog {
 
 const EMAIL_BATCH_SIZE = 500;
 const BATCH_DELAY = 90000; // 1 minuto
-const candidate_List: Root[] = JSON.parse(JSON.stringify(require('@/data/candidatosComDados1.json')));
 
 const statusFilePath = path.join(process.cwd(), 'src', 'data', 'emailStatus.json');
 
