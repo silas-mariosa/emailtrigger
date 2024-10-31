@@ -42,7 +42,7 @@ export interface EmailLog {
 }
 
 const EMAIL_BATCH_SIZE = 500;
-const BATCH_DELAY = 90000; // 1 minuto
+const BATCH_DELAY = 60000; // 1 minuto
 
 const statusFilePath = path.join(process.cwd(), 'src', 'data', 'emailStatus.json');
 
@@ -50,17 +50,46 @@ if (!fs.existsSync(statusFilePath)) {
     fs.writeFileSync(statusFilePath, JSON.stringify({ isPaused: false }), 'utf-8');
 }
 
+const dailyStatusFilePath = path.join(process.cwd(), 'src', 'data', 'dailyEmailStatus.json');
+
+if (!fs.existsSync(dailyStatusFilePath)) {
+    fs.writeFileSync(dailyStatusFilePath, JSON.stringify({ date: new Date().toISOString().slice(0, 10), count: 0 }), 'utf-8');
+}
+
 const emailLogPath = path.join(process.cwd(), 'src', 'data', 'emailsEnviados.json');
 
 const transporter = nodemailer.createTransport({
-    service: 'smtp.titan.email',
-    port: 465, // Porta SSL/TLS recomendada para segurança
-    secure: true,
+    host: "smtp.hostinger.com", // Atualize para o host SMTP da Hostinger
+    port: 465, // 465 para conexões seguras SSL/TLS
+    secure: true, // true para 465, false para 587
     auth: {
-        user: 'contato@smartgabinete.com.br',
-        pass: '@Wfbmrt8'
+      user: "contato@smartgabinete.com.br",
+      pass: "@Wfbmprt8",
+    },
+  });
+
+  function checkDailyLimitAndIncrement(batchSize: number): boolean {
+    const dailyStatus = JSON.parse(fs.readFileSync(dailyStatusFilePath, 'utf-8'));
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Se for um novo dia, reseta o contador
+    if (dailyStatus.date !== today) {
+        dailyStatus.date = today;
+        dailyStatus.count = 0;
     }
-});
+
+    // Verifica se ainda há limite para enviar e-mails
+    if (dailyStatus.count + batchSize > 3000) {
+        console.log('Limite diário de 3000 e-mails atingido.');
+        return false;
+    }
+
+    // Incrementa o contador e salva
+    dailyStatus.count += batchSize;
+    fs.writeFileSync(dailyStatusFilePath, JSON.stringify(dailyStatus, null, 2), 'utf-8');
+    return true;
+}
+
 
 // Função para registrar o envio do email
 function logEmail(envio: EmailLog) {
@@ -119,33 +148,42 @@ async function sendEmailWithRetry({ dadosCnpj }: Root, retries = 3) {
 
 async function sendEmailsInBatches(emails: Root[]) {
     for (let i = 0; i < emails.length; i += EMAIL_BATCH_SIZE) {
+        const batch = emails.slice(i, i + EMAIL_BATCH_SIZE);
+        
+        // Verifica se o envio deve ser pausado ao alcançar o limite diário
+        if (!checkDailyLimitAndIncrement(batch.length)) {
+            console.log('Envio de e-mails pausado, limite diário atingido.');
+            break;
+        }
+
         // Check if paused
         const status = JSON.parse(fs.readFileSync(statusFilePath, 'utf-8'));
         if (status.isPaused) {
             console.log('Envio de e-mails pausado no sendEmailsInBatches.');
-            break; // Exit the loop if paused
+            break;
         }
 
-        const batch = emails.slice(i, i + EMAIL_BATCH_SIZE);
         try {
             console.log(`Iniciando envio do lote de ${batch.length} e-mails.`);
-            const emailPromises = batch.map(email => sendEmailWithRetry(email)); // Alterado para usar sendEmailWithRetry
+            const emailPromises = batch.map(email => sendEmailWithRetry(email));
             await Promise.all(emailPromises);
             console.log(`Lote de ${batch.length} e-mails enviado com sucesso.`);
         } catch (error) {
             console.error('Erro ao enviar um lote de e-mails:', error);
-            throw error; // Propagate the error for the API to capture it
+            throw error;
         }
+        
         await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
     }
 }
+
 
 export async function POST() {
     try {
         console.log('Iniciando o processo de envio de e-mails');
         
         // Defina o caminho do JSON
-        const filePath = path.join(process.cwd(), 'src', 'data', 'candidatosComDados1.json');
+        const filePath = path.join(process.cwd(), 'src', 'data', 'candidatosComDados.json');
         console.log('filePath verificado');
         
         // Leia o conteúdo do arquivo JSON
