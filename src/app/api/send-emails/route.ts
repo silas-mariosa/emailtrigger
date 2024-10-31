@@ -43,7 +43,7 @@ export interface EmailLog {
 
 const EMAIL_BATCH_SIZE = 500;
 const BATCH_DELAY = 90000; // 1 minuto
-const candidate_List: Root[] = JSON.parse(JSON.stringify(require('@/data/candidatosComDados.json')));
+const candidate_List: Root[] = JSON.parse(JSON.stringify(require('@/data/candidatosComDados1.json')));
 
 const statusFilePath = path.join(process.cwd(), 'src', 'data', 'emailStatus.json');
 
@@ -54,10 +54,12 @@ if (!fs.existsSync(statusFilePath)) {
 const emailLogPath = path.join(process.cwd(), 'src', 'data', 'emailsEnviados.json');
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: 'smtp.titan.email',
+    port: 465, // Porta SSL/TLS recomendada para segurança
+    secure: true,
     auth: {
-        user: 'contato.smartgabinete@gmail.com',
-        pass: 'mjjawfmxztolfhna'
+        user: 'contato@smartgabinete.com.br',
+        pass: '@Wfbmrt8'
     }
 });
 
@@ -86,7 +88,7 @@ async function sendEmailWithRetry({ dadosCnpj }: Root, retries = 3) {
             console.log(`Enviando e-mail para: ${dadosCnpj.email} (Tentativa ${attempt + 1})`);
             // Configuração do e-mail
             const mailOptions = {
-                from: 'contato.smartgabinete@gmail.com',
+                from: 'contato@smartgabinete.com.br',
                 to: dadosCnpj.email,
                 subject: 'Faça um mandato com excelência',
                 html: htmlTemplate
@@ -144,7 +146,7 @@ export async function POST() {
         console.log('Iniciando o processo de envio de e-mails');
         
         // Defina o caminho do JSON
-        const filePath = path.join(process.cwd(), 'src', 'data', 'candidatosComDados.json');
+        const filePath = path.join(process.cwd(), 'src', 'data', 'candidatosComDados1.json');
         console.log('filePath verificado');
         
         // Leia o conteúdo do arquivo JSON
