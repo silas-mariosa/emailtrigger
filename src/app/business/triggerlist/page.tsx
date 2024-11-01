@@ -11,7 +11,7 @@ interface EmailLog {
   situacao: string;
 }
 
-const ITEMS_PER_PAGE = 50;
+const ITEMS_PER_PAGE = 20;
 
 export default function Dashboard() {
   const [emailStatus, setEmailStatus] = useState<EmailLog[]>([]);
@@ -24,7 +24,7 @@ export default function Dashboard() {
   const fetchEmailStatus = async () => {
     try {
       const response = await axios.get('/api/get-email-status');
-      setEmailStatus(response.data); // Assuming response.data is EmailLog[]
+      setEmailStatus(response.data);
       setTotalPages(Math.ceil(response.data.length / ITEMS_PER_PAGE));
     } catch (err) {
       toast({
@@ -38,24 +38,32 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchEmailStatus(); // Fetch initial status
-
-    const intervalId = setInterval(fetchEmailStatus, 5000); // Fetch every 5 seconds
-
-    return () => clearInterval(intervalId); // Clear interval on component unmount
+    fetchEmailStatus();
+    const intervalId = setInterval(fetchEmailStatus, 5000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleEmailSending = async (action: 'start' | 'pause' | 'resume') => {
-    setIsSending(action === 'start');
     try {
       const endpoint = action === 'start' ? '/api/send-emails' : action === 'pause' ? '/api/pause-emails' : '/api/resume-emails';
       await axios.post(endpoint);
+
+      if (action === 'start') {
+        setIsSending(true);
+        setIsPaused(false);
+      } else if (action === 'pause') {
+        setIsSending(false);
+        setIsPaused(true);
+      } else if (action === 'resume') {
+        setIsSending(true);
+        setIsPaused(false);
+      }
+
       toast({
         variant: 'default',
         title: `Envio de e-mails ${action === 'start' ? 'iniciado' : action === 'pause' ? 'pausado' : 'retomado'}!`,
         description: `O envio de e-mails foi ${action === 'start' ? 'iniciado' : action === 'pause' ? 'pausado' : 'retomado'} com sucesso.`,
       });
-      setIsPaused(action === 'pause');
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -64,8 +72,6 @@ export default function Dashboard() {
         action: <ToastAction altText="Tentar novamente" onClick={() => handleEmailSending(action)}>Tentar novamente</ToastAction>,
       });
       console.log(err);
-    } finally {
-      if (action !== 'start') setIsSending(false); // Reset state after pause/resume
     }
   };
 
@@ -80,11 +86,27 @@ export default function Dashboard() {
   return (
     <div className="p-8 font-sans">
       <h1 className="text-2xl font-semibold mb-4">Dashboard de Envio de E-mails</h1>
-      <button onClick={() => handleEmailSending('start')} disabled={isSending || isPaused} className={`px-4 py-2 text-white rounded-md ${isSending || isPaused ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-        {isSending ? (isPaused ? 'Retomar envio de e-mails...' : 'Enviando e-mails...') : 'Iniciar envio de e-mails'}
+      <button
+        onClick={() => handleEmailSending('start')}
+        disabled={isSending || isPaused}
+        className={`px-4 py-2 text-white rounded-md ${isSending || isPaused ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+      >
+        {isSending ? (isPaused ? 'Retomar envio de e-mails' : 'Enviando e-mails...') : 'Iniciar envio de e-mails'}
       </button>
-      <button onClick={() => handleEmailSending('pause')} disabled={!isSending} className="ml-4 px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700">Pausar envio de e-mails</button>
-      <button onClick={() => handleEmailSending('resume')} disabled={!isSending} className="ml-4 px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700">Retomar envio de e-mails</button>
+      <button
+        onClick={() => handleEmailSending('pause')}
+        disabled={!isSending || isPaused}
+        className="ml-4 px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700"
+      >
+        Pausar envio de e-mails
+      </button>
+      <button
+        onClick={() => handleEmailSending('resume')}
+        disabled={!isPaused}
+        className="ml-4 px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
+      >
+        Retomar envio de e-mails
+      </button>
 
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-2">Status dos E-mails Enviados</h2>
@@ -109,11 +131,23 @@ export default function Dashboard() {
           </table>
         </div>
         <div className="mt-4 flex justify-between">
-          <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Anterior</button>
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+          >
+            Anterior
+          </button>
           <span>Página {currentPage} de {totalPages}</span>
-          <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400">Próxima</button>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+          >
+            Próxima
+          </button>
         </div>
-      </div>     
+      </div>
     </div>
   );
 }
