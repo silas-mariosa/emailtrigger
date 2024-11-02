@@ -44,15 +44,15 @@ export interface EmailLog {
 const EMAIL_BATCH_SIZE = 10;  // Reduzido o lote
 const BATCH_DELAY = 30000; // 30 segundos
 
-const emailLogPath = path.join(process.cwd(), 'src', 'data', 'emailsEnviados.json');
+const emailLogPath = path.join(process.cwd(), 'public', 'data', 'emailsEnviados.json');
 
 const transporter = nodemailer.createTransport({
     host: "smtp.hostinger.com",
     port: 465,
     secure: true,
     auth: {
-      user: "contato@smartgabinete.com.br",
-      pass: "@Wfbmprt8",
+      user: process.env.EMAIL,
+      pass: process.env.PASSWORD,
     },
     pool: true,  // Reutiliza as conexões SMTP
     maxConnections: 5, // Número máximo de conexões simultâneas
@@ -153,7 +153,7 @@ export async function POST() {
     try {
         console.log('Iniciando o processo de envio de e-mails');
         
-        const filePath = path.join(process.cwd(), 'src', 'data', 'candidatosComDados.json');
+        const filePath = path.join(process.cwd(), 'public', 'data', 'candidatosComDados.json');
         const fileContent = fs.readFileSync(filePath, 'utf-8');
         const emails = JSON.parse(fileContent);
 

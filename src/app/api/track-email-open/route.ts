@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { EmailLog } from '../send-emails/route';
 
-const dataFilePath = path.join(process.cwd(), 'src', 'data', 'emailsEnviados.json');
+const dataFilePath = path.join(process.cwd(), 'public',  'emailsEnviados.json');
 
 async function loadEmailsData() {
   const data = fs.existsSync(dataFilePath)
