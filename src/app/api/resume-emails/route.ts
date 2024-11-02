@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const statusFilePath = path.join(process.cwd(), 'src', 'data', 'emailStatus.json'); // Path to the file to hold status
+const statusFilePath = path.join(process.cwd(), 'public', 'data',  'emailStatus.json'); // Path to the file to hold status
 
 export async function POST() {
   try {
