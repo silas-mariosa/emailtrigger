@@ -41,8 +41,11 @@ export interface EmailLog {
     situacao: string;
 }
 
-const EMAIL_BATCH_SIZE = 10;  // Reduzido o lote
+const EMAIL_BATCH_SIZE = 50;  // Tamanho reduzido do lote
 const BATCH_DELAY = 30000; // 30 segundos
+const EMAIL_SEND_LIMIT = 3000; // Limite de e-mails para envio
+const AUTH_ERROR_THRESHOLD = 3600000; // 1 hora em milissegundos
+const PAUSE_DURATION = 86400000; // 24 horas em milissegundos
 
 const emailLogPath = path.join(process.cwd(), 'public', 'data', 'emailsEnviados.json');
 
@@ -51,8 +54,8 @@ const transporter = nodemailer.createTransport({
     port: 465,
     secure: true,
     auth: {
-      user: process.env.EMAIL,
-      pass: process.env.PASSWORD,
+        user: process.env.EMAIL,
+        pass: process.env.PASSWORD,
     },
     pool: true,  // Reutiliza as conexões SMTP
     maxConnections: 5, // Número máximo de conexões simultâneas
@@ -109,16 +112,27 @@ async function sendEmail({ cnpj, dadosCnpj }: Root) {
         });
     } catch (error) {
         console.error(`Erro ao enviar e-mail para ${dadosCnpj.email}:`, error);
+
+        // Verifica se o erro é o de limite de envio
+        if ((error as Error).message.includes('hostinger_out_ratelimit')) {
+            console.warn('Limite de envio atingido. Aguardando 1 hora.');
+            return { errorType: 'rateLimit', firstErrorTime: Date.now() }; // Retorna o timestamp do primeiro erro
+        }
+
+        // Verifica se o erro é o de muitos comandos AUTH
+        if ((error as Error).message.includes('450 4.7.1 Error: too many AUTH commands')) {
+            console.warn('Erro: muitos comandos AUTH. Aguardando 1 hora.');
+            return { errorType: 'authError', firstErrorTime: Date.now() }; // Retorna o timestamp do primeiro erro
+        }
+
         logEmail({
             email: dadosCnpj.email,
             dataEnvio: new Date().toISOString(),
             situacao: `Erro: ${(error as Error).message}`
         });
-        throw error;
+        throw error; // Relança o erro para tratamento adicional
     }
 }
-
-
 
 async function sendEmailsInBatches(emails: Root[]) {
     // Carrega o log de e-mails para verificar envios anteriores
@@ -128,40 +142,88 @@ async function sendEmailsInBatches(emails: Root[]) {
 
     // Filtra os e-mails que ainda não foram enviados com sucesso
     const emailsParaEnviar = emails.filter(
-        email => !emailLog.find((log: EmailLog) => log.email === email.dadosCnpj.email && log.situacao === 'Enviado com sucesso')
+        email => email.dadosCnpj.email && // Verifica se o email não é vazio
+            !emailLog.find((log: EmailLog) => log.email === email.dadosCnpj.email && log.situacao === 'Enviado com sucesso')
     );
+
+    let emailsSentCount = 0; // Contador de e-mails enviados
+    let attemptCount = 0; // Contador de tentativas
+    const MAX_ATTEMPTS = 3; // Número máximo de tentativas
+    let firstErrorTime: number | null = null; // Para armazenar o tempo do primeiro erro
 
     for (let i = 0; i < emailsParaEnviar.length; i += EMAIL_BATCH_SIZE) {
         const batch = emailsParaEnviar.slice(i, i + EMAIL_BATCH_SIZE);
 
-        try {
-            console.log(`Iniciando envio do lote de ${batch.length} e-mails.`);
-            const emailPromises = batch.map(email => sendEmail(email));
+        while (attemptCount < MAX_ATTEMPTS) {
+            try {
+                console.log(`Enviando lote de ${batch.length} e-mails (Tentativa ${attemptCount + 1}).`);
+                const emailPromises = batch.map(email => sendEmail(email));
 
-            await Promise.all(emailPromises);
-            console.log(`Lote de ${batch.length} e-mails enviado com sucesso.`);
-        } catch (error) {
-            console.error('Erro ao enviar um lote de e-mails:', error);
+                const results = await Promise.all(emailPromises);
+
+                // Verifica se algum email retornou um erro e obtém o timestamp do primeiro erro
+                const rateLimitError = results.find(result => result && result.errorType === 'rateLimit');
+                const authError = results.find(result => result && result.errorType === 'authError');
+
+                if (rateLimitError) {
+                    firstErrorTime = rateLimitError.firstErrorTime;
+                    break; // Sai do loop para lidar com a pausa
+                }
+
+                if (authError) {
+                    firstErrorTime = authError.firstErrorTime;
+                    break; // Sai do loop para lidar com a pausa
+                }
+
+                emailsSentCount += batch.length; // Atualiza o contador
+
+                console.log(`Lote de ${batch.length} e-mails enviado com sucesso.`);
+                attemptCount = 0; // Reseta o contador de tentativas após sucesso
+
+                // Pausa se o limite de e-mails enviados for atingido
+                if (emailsSentCount >= EMAIL_SEND_LIMIT) {
+                    console.log(`Limite de ${EMAIL_SEND_LIMIT} e-mails enviados. Pausando...`);
+                    await new Promise(resolve => setTimeout(resolve, 60000)); // Pausa por 1 minuto
+                    emailsSentCount = 0; // Reseta o contador após a pausa
+                }
+                break; // Sai do loop se o lote foi enviado com sucesso
+            } catch (error) {
+                console.error('Erro ao enviar o lote de e-mails:', error);
+                attemptCount += 1; // Incrementa o contador de tentativas
+
+                if (attemptCount >= MAX_ATTEMPTS) {
+                    console.warn('Número máximo de tentativas atingido. Pausando o envio de e-mails por 24 horas.');
+                    await new Promise(resolve => setTimeout(resolve, PAUSE_DURATION)); // Pausa por 24 horas
+                }
+            }
+
+            // Delay entre as tentativas
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
         }
 
-        // Delay entre os lotes
-        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+        // Se houve erro de limite ou AUTH, controla o tempo de pausa
+        if (firstErrorTime) {
+            const currentTime = Date.now();
+            const elapsedTime = currentTime - firstErrorTime;
+
+            // Verifica se já se passou 1 hora desde o primeiro erro
+            if (elapsedTime < AUTH_ERROR_THRESHOLD) {
+                const timeToWait = AUTH_ERROR_THRESHOLD - elapsedTime;
+                console.warn(`Aguardando ${timeToWait / 1000} segundos antes de tentar novamente.`);
+                await new Promise(resolve => setTimeout(resolve, timeToWait)); // Aguardar até 1 hora
+            } else if (elapsedTime < PAUSE_DURATION) {
+                const remainingTime = PAUSE_DURATION - elapsedTime;
+                console.warn(`Aguardando ${remainingTime / 1000} segundos antes de tentar novamente.`);
+                await new Promise(resolve => setTimeout(resolve, remainingTime)); // Aguardar o tempo restante até 24 horas
+            }
+
+            firstErrorTime = null; // Reseta o timestamp do erro
+        }
     }
 }
 
-export async function POST() {
-    try {
-        console.log('Iniciando o processo de envio de e-mails');
-        
-        const filePath = path.join(process.cwd(), 'public', 'data', 'candidatosComDados.json');
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
-        const emails = JSON.parse(fileContent);
-
-        await sendEmailsInBatches(emails);
-
-        return NextResponse.json({ message: 'Processo de envio de e-mails iniciado' });
-    } catch (error) {
-        console.error('Erro ao enviar e-mails:', error);
-        return NextResponse.json({ error: 'Erro ao enviar e-mails' }, { status: 500 });
-    }
+export async function POST(req: Request) {
+    const data: Root[] = await req.json();
+    await sendEmailsInBatches(data);
+    return NextResponse.json({ status: 'success' });
 }

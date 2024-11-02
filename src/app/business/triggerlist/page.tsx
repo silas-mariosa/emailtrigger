@@ -18,7 +18,6 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isSending, setIsSending] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const { toast } = useToast();
 
   const fetchEmailStatus = async () => {
@@ -43,35 +42,26 @@ export default function Dashboard() {
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleEmailSending = async (action: 'start' | 'pause' | 'resume') => {
+  const handleEmailSending = async () => {
     try {
-      const endpoint = action === 'start' ? '/api/send-emails' : action === 'pause' ? '/api/pause-emails' : '/api/resume-emails';
+      const endpoint = isSending ? '/api/pause-emails' : '/api/send-emails';
       await axios.post(endpoint);
 
-      if (action === 'start') {
-        setIsSending(true);
-        setIsPaused(false);
-      } else if (action === 'pause') {
-        setIsSending(false);
-        setIsPaused(true);
-      } else if (action === 'resume') {
-        setIsSending(true);
-        setIsPaused(false);
-      }
+      setIsSending(prev => !prev); // Toggle sending state
 
       toast({
         variant: 'default',
-        title: `Envio de e-mails ${action === 'start' ? 'iniciado' : action === 'pause' ? 'pausado' : 'retomado'}!`,
-        description: `O envio de e-mails foi ${action === 'start' ? 'iniciado' : action === 'pause' ? 'pausado' : 'retomado'} com sucesso.`,
+        title: `Envio de e-mails ${isSending ? 'pausado' : 'iniciado'}!`,
+        description: `O envio de e-mails foi ${isSending ? 'pausado' : 'iniciado'} com sucesso.`,
       });
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: `Erro ao ${action === 'start' ? 'iniciar' : action === 'pause' ? 'pausar' : 'retomar'} o envio de e-mails.`,
+        title: `Erro ao ${isSending ? 'pausar' : 'iniciar'} o envio de e-mails.`,
         description: 'Houve um problema ao processar a ação. Tente novamente.',
-        action: <ToastAction altText="Tentar novamente" onClick={() => handleEmailSending(action)}>Tentar novamente</ToastAction>,
+        action: <ToastAction altText="Tentar novamente" onClick={handleEmailSending}>Tentar novamente</ToastAction>,
       });
-      console.log(err);
+      console.error(err);
     }
   };
 
@@ -87,25 +77,10 @@ export default function Dashboard() {
     <div className="p-8 font-sans">
       <h1 className="text-2xl font-semibold mb-4">Dashboard de Envio de E-mails</h1>
       <button
-        onClick={() => handleEmailSending('start')}
-        disabled={isSending || isPaused}
-        className={`px-4 py-2 text-white rounded-md ${isSending || isPaused ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+        onClick={handleEmailSending}
+        className={`px-4 py-2 text-white rounded-md ${isSending ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
       >
-        {isSending ? (isPaused ? 'Retomar envio de e-mails' : 'Enviando e-mails...') : 'Iniciar envio de e-mails'}
-      </button>
-      <button
-        onClick={() => handleEmailSending('pause')}
-        disabled={!isSending || isPaused}
-        className="ml-4 px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700"
-      >
-        Pausar envio de e-mails
-      </button>
-      <button
-        onClick={() => handleEmailSending('resume')}
-        disabled={!isPaused}
-        className="ml-4 px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
-      >
-        Retomar envio de e-mails
+        {isSending ? 'Parar envio de e-mails' : 'Iniciar envio de e-mails'}
       </button>
 
       <div className="mt-6">
@@ -130,7 +105,7 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
-        <div className="mt-4 flex justify-between">
+        <div className="mt-4 flex justify-between items-center">
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
@@ -145,6 +120,13 @@ export default function Dashboard() {
             className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
           >
             Próxima
+          </button>
+          <button
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+          >
+            Última
           </button>
         </div>
       </div>
