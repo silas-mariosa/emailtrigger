@@ -41,9 +41,9 @@ export interface EmailLog {
   situacao: string;
 }
 
-const EMAIL_BATCH_SIZE = 50; // Tamanho reduzido do lote
-const BATCH_DELAY = 30000; // 30 segundos
-const EMAIL_SEND_LIMIT = 3000; // Limite de e-mails para envio
+const EMAIL_BATCH_SIZE = 100; // Tamanho do lote
+const BATCH_DELAY = 900000; // 15 minutos (15 * 60 * 1000 ms)
+const EMAIL_SEND_LIMIT = 2800; // Limite de e-mails para envio
 const AUTH_ERROR_THRESHOLD = 3600000; // 1 hora em milissegundos
 
 const emailLogPath = path.join(
@@ -145,12 +145,10 @@ async function sendEmail({ cnpj, dadosCnpj }: Root) {
 }
 
 async function sendEmailsInBatches(emails: Root[]) {
-  // Carrega o log de e-mails para verificar envios anteriores
   const emailLog = fs.existsSync(emailLogPath)
     ? JSON.parse(fs.readFileSync(emailLogPath, "utf-8"))
     : [];
 
-  // Filtra os e-mails que ainda não foram enviados com sucesso
   const emailsParaEnviar = emails.filter(
     (email) =>
       email.dadosCnpj.email && // Verifica se o email não é vazio
@@ -172,7 +170,6 @@ async function sendEmailsInBatches(emails: Root[]) {
 
       const results = await Promise.all(emailPromises);
 
-      // Verifica se algum email retornou um erro e obtém o timestamp do primeiro erro
       const rateLimitError = results.find(
         (result) => result && result.errorType === "rateLimit"
       );
@@ -201,6 +198,9 @@ async function sendEmailsInBatches(emails: Root[]) {
         await new Promise((resolve) => setTimeout(resolve, 60000)); // Pausa por 1 minuto
         emailsSentCount = 0; // Reseta o contador após a pausa
       }
+
+      // Aguardar 15 minutos entre o envio de lotes
+      await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
       break; // Sai do loop se o lote foi enviado com sucesso
     } catch (error) {
       console.error("Erro ao enviar o lote de e-mails:", error);
@@ -222,7 +222,7 @@ async function sendEmailsInBatches(emails: Root[]) {
         `Aguardando ${timeToWait / 1000} segundos antes de tentar novamente.`
       );
       await new Promise((resolve) => setTimeout(resolve, timeToWait)); // Aguardar até 1 hora
-    } 
+    }
 
     firstErrorTime = null; // Reseta o timestamp do erro
   }
