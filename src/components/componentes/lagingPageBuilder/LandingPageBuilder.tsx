@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Settings, X, Eye, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Settings, X, Eye, ChevronDown, ChevronRight, Image as ImageIcon } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -11,10 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import Image from 'next/image'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
 type ComponentType = 'paragraph' | 'button' | 'image' | 'video' | 'carousel' | 'form' | 'table' | 'container'
 
@@ -26,6 +27,9 @@ interface Component {
 interface ContainerConfig {
   backgroundColor: string
   backgroundImage: string
+  backgroundSize: string
+  backgroundPosition: string
+  backgroundRepeat: string
   alignment: 'flex-col' | 'flex-row'
   justifyContent: string
   alignItems: string
@@ -73,6 +77,9 @@ export default function LandingPageBuilder() {
       config: {
         backgroundColor: 'bg-white',
         backgroundImage: '',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
         alignment: 'flex-col',
         justifyContent: 'justify-start',
         alignItems: 'items-start',
@@ -86,7 +93,8 @@ export default function LandingPageBuilder() {
     if (parentIndex !== undefined) {
       const newContainers = [...containers]
       const parentContainer = newContainers[parentIndex]
-      if (parentContainer.components.filter(c => c.type === 'container').length < 4) {
+      const subContainers = parentContainer.components.filter(c => c.type === 'container')
+      if (subContainers.length < 4) {
         parentContainer.components.push({ type: 'container', props: newContainer })
         setContainers(newContainers)
       }
@@ -237,6 +245,9 @@ export default function LandingPageBuilder() {
           config: {
             backgroundColor: 'bg-white',
             backgroundImage: '',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
             alignment: 'flex-col',
             justifyContent: 'justify-start',
             alignItems: 'items-start',
@@ -305,6 +316,9 @@ function ContainerComponent({ container, containerIndex, onAddComponent, onUpdat
       className={`mb-8 p-4 border border-dashed border-gray-300 rounded-lg ${container.config.backgroundColor}`}
       style={{
         backgroundImage: container.config.backgroundImage ? `url(${container.config.backgroundImage})` : 'none',
+        backgroundSize: container.config.backgroundSize,
+        backgroundPosition: container.config.backgroundPosition,
+        backgroundRepeat: container.config.backgroundRepeat,
         padding: container.config.padding,
         margin: container.config.margin,
       }}
@@ -312,10 +326,21 @@ function ContainerComponent({ container, containerIndex, onAddComponent, onUpdat
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Container {containerIndex + 1}</h2>
         <div className="flex space-x-2">
-          <ContainerConfigDialog
-            config={container.config}
-            onUpdate={onUpdateConfig}
-          />
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Config
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Container Configuration</SheetTitle>
+                <SheetDescription>Customize the container settings here.</SheetDescription>
+              </SheetHeader>
+              <ContainerConfigDialog config={container.config} onUpdate={onUpdateConfig} />
+            </SheetContent>
+          </Sheet>
           <AddComponentButton
             onAddComponent={onAddComponent}
             disabled={container.components.length >= 4}
@@ -338,7 +363,7 @@ function ContainerComponent({ container, containerIndex, onAddComponent, onUpdat
               <ContainerComponent
                 container={component.props}
                 containerIndex={componentIndex}
-                onAddComponent={(type) => onAddComponent(type)}
+                onAddComponent={(type) => onUpdateComponent(componentIndex, { components: [...component.props.components, { type, props:  getDefaultProps(type) }] })}
                 onUpdateComponent={(subComponentIndex, newProps) => onUpdateComponent(componentIndex, { components: component.props.components.map((c: any, i: number) => i === subComponentIndex ? { ...c, props: { ...c.props, ...newProps } } : c) })}
                 onRemoveComponent={(subComponentIndex) => onUpdateComponent(componentIndex, { components: component.props.components.filter((_: any, i: number) => i !== subComponentIndex) })}
                 onUpdateConfig={(newConfig) => onUpdateComponent(componentIndex, { config: { ...component.props.config, ...newConfig } })}
@@ -360,11 +385,10 @@ function ContainerComponent({ container, containerIndex, onAddComponent, onUpdat
 function Header({ config, onConfigUpdate }: { config: HeaderConfig; onConfigUpdate: (newConfig: HeaderConfig) => void }) {
   return (
     <header className="bg-primary text-primary-foreground p-4 flex justify-between items-center">
-      <Image src={config.logo} alt="Logo" className="h-8" />
+      <img src={config.logo} alt="Logo" className="h-8" />
       <nav>
         {config.navItems.map((item, index) => (
           item.subItems ? (
-            
             <Popover key={index}>
               <PopoverTrigger asChild>
                 <Button variant="ghost" className="mx-1">
@@ -485,195 +509,253 @@ function Footer() {
 }
 
 function ContainerConfigDialog({ config, onUpdate }: { config: ContainerConfig; onUpdate: (newConfig: Partial<ContainerConfig>) => void }) {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        onUpdate({ backgroundImage: reader.result as string })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Settings className="h-4 w-4 mr-2" />
-          Config
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Container Configuration</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="backgroundColor">Background Color</Label>
-            <div className="flex space-x-2">
-              <Select
-                onValueChange={(value) => onUpdate({ backgroundColor: value })}
-                defaultValue={config.backgroundColor}
-              >
-                <SelectTrigger id="backgroundColor">
-                  <SelectValue placeholder="Select a color" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bg-white">White</SelectItem>
-                  <SelectItem value="bg-gray-100">Light Gray</SelectItem>
-                  <SelectItem value="bg-blue-100">Light Blue</SelectItem>
-                  <SelectItem value="bg-green-100">Light Green</SelectItem>
-                  <SelectItem value="bg-red-100">Light Red</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="text"
-                placeholder="RGB or Hex"
-                onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="backgroundImage">Background Image URL</Label>
-            <Input
-              id="backgroundImage"
-              value={config.backgroundImage}
-              onChange={(e) => onUpdate({ backgroundImage: e.target.value })}
-              placeholder="https://example.com/image.jpg"
-            />
-          </div>
-          <div>
-            <Label htmlFor="alignment">Alignment</Label>
-            <div className="flex space-x-2">
-              <Select
-                onValueChange={(value) => onUpdate({ alignment: value as 'flex-col' | 'flex-row' })}
-                defaultValue={config.alignment}
-              >
-                <SelectTrigger id="alignment">
-                  <SelectValue placeholder="Select alignment" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="flex-col">Vertical</SelectItem>
-                  <SelectItem value="flex-row">Horizontal</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="text"
-                placeholder="Custom alignment"
-                onChange={(e) => onUpdate({ alignment: e.target.value as 'flex-col' | 'flex-row' })}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="justifyContent">Justify Content</Label>
-            <div className="flex space-x-2">
-              <Select
-                onValueChange={(value) => onUpdate({ justifyContent: value })}
-                defaultValue={config.justifyContent}
-              >
-                <SelectTrigger id="justifyContent">
-                  <SelectValue placeholder="Select justify content" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="justify-start">Start</SelectItem>
-                  <SelectItem value="justify-center">Center</SelectItem>
-                  <SelectItem value="justify-end">End</SelectItem>
-                  <SelectItem value="justify-between">Space Between</SelectItem>
-                  <SelectItem value="justify-around">Space Around</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="text"
-                placeholder="Custom justify"
-                onChange={(e) => onUpdate({ justifyContent: e.target.value })}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="alignItems">Align Items</Label>
-            <div className="flex space-x-2">
-              <Select
-                onValueChange={(value) => onUpdate({ alignItems: value })}
-                defaultValue={config.alignItems}
-              >
-                <SelectTrigger id="alignItems">
-                  <SelectValue placeholder="Select align items" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="items-start">Start</SelectItem>
-                  <SelectItem value="items-center">Center</SelectItem>
-                  <SelectItem value="items-end">End</SelectItem>
-                  <SelectItem value="items-stretch">Stretch</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="text"
-                placeholder="Custom align"
-                onChange={(e) => onUpdate({ alignItems: e.target.value })}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="padding">Padding (top right bottom left)</Label>
-            <Input
-              id="padding"
-              value={config.padding}
-              onChange={(e) => onUpdate({ padding: e.target.value })}
-              placeholder="0px 0px 0px 0px"
-            />
-          </div>
-          <div>
-            <Label htmlFor="margin">Margin (top right bottom left)</Label>
-            <Input
-              id="margin"
-              value={config.margin}
-              onChange={(e) => onUpdate({ margin: e.target.value })}
-              placeholder="0px 0px 0px 0px"
-            />
-          </div>
-          <div>
-            <Label htmlFor="width">Width</Label>
-            <div className="flex space-x-2">
-              <Select
-                onValueChange={(value) => onUpdate({ width: value })}
-                defaultValue={config.width}
-              >
-                <SelectTrigger id="width">
-                  <SelectValue placeholder="Select width" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="w-full">Full</SelectItem>
-                  <SelectItem value="w-1/2">Half</SelectItem>
-                  <SelectItem value="w-1/3">One Third</SelectItem>
-                  <SelectItem value="w-2/3">Two Thirds</SelectItem>
-                  <SelectItem value="w-1/4">One Quarter</SelectItem>
-                  <SelectItem value="w-3/4">Three Quarters</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="text"
-                placeholder="Custom width"
-                onChange={(e) => onUpdate({ width: e.target.value })}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="height">Height</Label>
-            <div className="flex space-x-2">
-              <Select
-                onValueChange={(value) => onUpdate({ height: value })}
-                defaultValue={config.height}
-              >
-                <SelectTrigger id="height">
-                  <SelectValue placeholder="Select height" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="h-auto">Auto</SelectItem>
-                  <SelectItem value="h-full">Full</SelectItem>
-                  <SelectItem value="h-screen">Screen</SelectItem>
-                  <SelectItem value="h-64">Fixed (16rem)</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="text"
-                placeholder="Custom height"
-                onChange={(e) => onUpdate({ height: e.target.value })}
-              />
-            </div>
-          </div>
+    <div className="space-y-4 py-4">
+      <div>
+        <Label htmlFor="backgroundColor">Background Color</Label>
+        <div className="flex space-x-2">
+          <Select
+            onValueChange={(value) => onUpdate({ backgroundColor: value })}
+            defaultValue={config.backgroundColor}
+          >
+            <SelectTrigger id="backgroundColor">
+              <SelectValue placeholder="Select a color" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bg-white">White</SelectItem>
+              <SelectItem value="bg-gray-100">Light Gray</SelectItem>
+              <SelectItem value="bg-blue-100">Light Blue</SelectItem>
+              <SelectItem value="bg-green-100">Light Green</SelectItem>
+              <SelectItem value="bg-red-100">Light Red</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="text"
+            placeholder="RGB or Hex"
+            onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
+          />
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+      <div>
+        <Label htmlFor="backgroundImage">Background Image</Label>
+        <div className="flex items-center space-x-2">
+          <Input
+            id="backgroundImage"
+            type="file"
+            onChange={handleFileChange}
+            accept="image/*"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onUpdate({ backgroundImage: '' })}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="backgroundSize">Background Size</Label>
+        <Select
+          onValueChange={(value) => onUpdate({ backgroundSize: value })}
+          defaultValue={config.backgroundSize}
+        >
+          <SelectTrigger id="backgroundSize">
+            <SelectValue placeholder="Select background size" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cover">Cover</SelectItem>
+            <SelectItem value="contain">Contain</SelectItem>
+            <SelectItem value="auto">Auto</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="backgroundPosition">Background Position</Label>
+        <Select
+          onValueChange={(value) => onUpdate({ backgroundPosition: value })}
+          defaultValue={config.backgroundPosition}
+        >
+          <SelectTrigger id="backgroundPosition">
+            <SelectValue placeholder="Select background position" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="center">Center</SelectItem>
+            <SelectItem value="top">Top</SelectItem>
+            <SelectItem value="bottom">Bottom</SelectItem>
+            <SelectItem value="left">Left</SelectItem>
+            <SelectItem value="right">Right</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="backgroundRepeat">Background Repeat</Label>
+        <Select
+          onValueChange={(value) => onUpdate({ backgroundRepeat: value })}
+          defaultValue={config.backgroundRepeat}
+        >
+          <SelectTrigger id="backgroundRepeat">
+            <SelectValue placeholder="Select background repeat" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="no-repeat">No Repeat</SelectItem>
+            <SelectItem value="repeat">Repeat</SelectItem>
+            <SelectItem value="repeat-x">Repeat X</SelectItem>
+            <SelectItem value="repeat-y">Repeat Y</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="alignment">Alignment</Label>
+        <div className="flex space-x-2">
+          <Select
+            onValueChange={(value) => onUpdate({ alignment: value as 'flex-col' | 'flex-row' })}
+            defaultValue={config.alignment}
+          >
+            <SelectTrigger id="alignment">
+              <SelectValue placeholder="Select alignment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="flex-col">Vertical</SelectItem>
+              <SelectItem value="flex-row">Horizontal</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="text"
+            placeholder="Custom alignment"
+            onChange={(e) => onUpdate({ alignment: e.target.value as 'flex-col' | 'flex-row' })}
+          />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="justifyContent">Justify Content</Label>
+        <div className="flex space-x-2">
+          <Select
+            onValueChange={(value) => onUpdate({ justifyContent: value })}
+            defaultValue={config.justifyContent}
+          >
+            <SelectTrigger id="justifyContent">
+              <SelectValue placeholder="Select justify content" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="justify-start">Start</SelectItem>
+              <SelectItem value="justify-center">Center</SelectItem>
+              <SelectItem value="justify-end">End</SelectItem>
+              <SelectItem value="justify-between">Space Between</SelectItem>
+              <SelectItem value="justify-around">Space Around</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="text"
+            placeholder="Custom justify"
+            onChange={(e) => onUpdate({ justifyContent: e.target.value })}
+          />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="alignItems">Align Items</Label>
+        <div className="flex space-x-2">
+          <Select
+            onValueChange={(value) => onUpdate({ alignItems: value })}
+            defaultValue={config.alignItems}
+          >
+            <SelectTrigger id="alignItems">
+              <SelectValue placeholder="Select align items" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="items-start">Start</SelectItem>
+              <SelectItem value="items-center">Center</SelectItem>
+              <SelectItem value="items-end">End</SelectItem>
+              <SelectItem value="items-stretch">Stretch</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="text"
+            placeholder="Custom align"
+            onChange={(e) => onUpdate({ alignItems: e.target.value })}
+          />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="padding">Padding (top right bottom left)</Label>
+        <Input
+          id="padding"
+          value={config.padding}
+          onChange={(e) => onUpdate({ padding: e.target.value })}
+          placeholder="0px 0px 0px 0px"
+        />
+      </div>
+      <div>
+        <Label htmlFor="margin">Margin (top right bottom left)</Label>
+        <Input
+          id="margin"
+          value={config.margin}
+          onChange={(e) => onUpdate({ margin: e.target.value })}
+          placeholder="0px 0px 0px 0px"
+        />
+      </div>
+      <div>
+        <Label htmlFor="width">Width</Label>
+        <div className="flex space-x-2">
+          <Select
+            onValueChange={(value) => onUpdate({ width: value })}
+            defaultValue={config.width}
+          >
+            <SelectTrigger id="width">
+              <SelectValue placeholder="Select width" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="w-full">Full</SelectItem>
+              <SelectItem value="w-1/2">Half</SelectItem>
+              <SelectItem value="w-1/3">One Third</SelectItem>
+              <SelectItem value="w-2/3">Two Thirds</SelectItem>
+              <SelectItem value="w-1/4">One Quarter</SelectItem>
+              <SelectItem value="w-3/4">Three Quarters</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="text"
+            placeholder="Custom width"
+            onChange={(e) => onUpdate({ width: e.target.value })}
+          />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="height">Height</Label>
+        <div className="flex space-x-2">
+          <Select
+            onValueChange={(value) => onUpdate({ height: value })}
+            defaultValue={config.height}
+          >
+            <SelectTrigger id="height">
+              <SelectValue placeholder="Select height" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="h-auto">Auto</SelectItem>
+              <SelectItem value="h-full">Full</SelectItem>
+              <SelectItem value="h-screen">Screen</SelectItem>
+              <SelectItem value="h-64">Fixed (16rem)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="text"
+            placeholder="Custom height"
+            onChange={(e) => onUpdate({ height: e.target.value })}
+          />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -732,23 +814,16 @@ function ParagraphComponent({ content, font, fontSize, alignment, bold, italic, 
         className="w-full mb-2"
       />
       <div className="flex flex-wrap gap-2">
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ font: value })} value={font}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select font" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="font-sans">Sans-serif</SelectItem>
-              <SelectItem value="font-serif">Serif</SelectItem>
-              <SelectItem value="font-mono">Monospace</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="Custom font"
-            onChange={(e) => onUpdate({ font: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ font: value })} value={font}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select font" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="font-sans">Sans-serif</SelectItem>
+            <SelectItem value="font-serif">Serif</SelectItem>
+            <SelectItem value="font-mono">Monospace</SelectItem>
+          </SelectContent>
+        </Select>
         <Input
           type="number"
           value={fontSize}
@@ -756,23 +831,16 @@ function ParagraphComponent({ content, font, fontSize, alignment, bold, italic, 
           className="w-20"
           placeholder="Font size"
         />
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ alignment: value })} value={alignment}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Alignment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text-left">Left</SelectItem>
-              <SelectItem value="text-center">Center</SelectItem>
-              <SelectItem value="text-right">Right</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="Custom alignment"
-            onChange={(e) => onUpdate({ alignment: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ alignment: value })} value={alignment}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Alignment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text-left">Left</SelectItem>
+            <SelectItem value="text-center">Center</SelectItem>
+            <SelectItem value="text-right">Right</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex items-center space-x-2">
           <Switch
             checked={bold}
@@ -799,45 +867,31 @@ function ParagraphComponent({ content, font, fontSize, alignment, bold, italic, 
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ textColor: value })} value={textColor}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Text color" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text-gray-900">Black</SelectItem>
-              <SelectItem value="text-white">White</SelectItem>
-              <SelectItem value="text-blue-500">Blue</SelectItem>
-              <SelectItem value="text-green-500">Green</SelectItem>
-              <SelectItem value="text-red-500">Red</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="RGB or Hex"
-            onChange={(e) => onUpdate({ textColor: e.target.value })}
-          />
-        </div>
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ backgroundColor: value })} value={backgroundColor}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Background color" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="bg-transparent">Transparent</SelectItem>
-              <SelectItem value="bg-white">White</SelectItem>
-              <SelectItem value="bg-gray-100">Light Gray</SelectItem>
-              <SelectItem value="bg-blue-100">Light Blue</SelectItem>
-              <SelectItem value="bg-green-100">Light Green</SelectItem>
-              <SelectItem value="bg-red-100">Light Red</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="RGB or Hex"
-            onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ textColor: value })} value={textColor}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Text color" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text-gray-900">Black</SelectItem>
+            <SelectItem value="text-white">White</SelectItem>
+            <SelectItem value="text-blue-500">Blue</SelectItem>
+            <SelectItem value="text-green-500">Green</SelectItem>
+            <SelectItem value="text-red-500">Red</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select onValueChange={(value) => onUpdate({ backgroundColor: value })} value={backgroundColor}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Background color" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="bg-transparent">Transparent</SelectItem>
+            <SelectItem value="bg-white">White</SelectItem>
+            <SelectItem value="bg-gray-100">Light Gray</SelectItem>
+            <SelectItem value="bg-blue-100">Light Blue</SelectItem>
+            <SelectItem value="bg-green-100">Light Green</SelectItem>
+            <SelectItem value="bg-red-100">Light Red</SelectItem>
+          </SelectContent>
+        </Select>
         <Input
           value={padding}
           onChange={(e) => onUpdate({ padding: e.target.value })}
@@ -871,23 +925,16 @@ function ButtonComponent({ text, link, font, fontSize, alignment, bold, italic, 
         className="mb-2"
       />
       <div className="flex flex-wrap gap-2">
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ font: value })} value={font}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select font" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="font-sans">Sans-serif</SelectItem>
-              <SelectItem value="font-serif">Serif</SelectItem>
-              <SelectItem value="font-mono">Monospace</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="Custom font"
-            onChange={(e) => onUpdate({ font: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ font: value })} value={font}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select font" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="font-sans">Sans-serif</SelectItem>
+            <SelectItem value="font-serif">Serif</SelectItem>
+            <SelectItem value="font-mono">Monospace</SelectItem>
+          </SelectContent>
+        </Select>
         <Input
           type="number"
           value={fontSize}
@@ -895,23 +942,16 @@ function ButtonComponent({ text, link, font, fontSize, alignment, bold, italic, 
           className="w-20"
           placeholder="Font size"
         />
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ alignment: value })} value={alignment}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Alignment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text-left">Left</SelectItem>
-              <SelectItem value="text-center">Center</SelectItem>
-              <SelectItem value="text-right">Right</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="Custom alignment"
-            onChange={(e) => onUpdate({ alignment: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ alignment: value })} value={alignment}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Alignment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text-left">Left</SelectItem>
+            <SelectItem value="text-center">Center</SelectItem>
+            <SelectItem value="text-right">Right</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex items-center space-x-2">
           <Switch
             checked={bold}
@@ -938,44 +978,30 @@ function ButtonComponent({ text, link, font, fontSize, alignment, bold, italic, 
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ textColor: value })} value={textColor}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Text color" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text-white">White</SelectItem>
-              <SelectItem value="text-gray-900">Black</SelectItem>
-              <SelectItem value="text-blue-500">Blue</SelectItem>
-              <SelectItem value="text-green-500">Green</SelectItem>
-              <SelectItem value="text-red-500">Red</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="RGB or Hex"
-            onChange={(e) => onUpdate({ textColor: e.target.value })}
-          />
-        </div>
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ backgroundColor: value })} value={backgroundColor}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Background color" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="bg-blue-500">Blue</SelectItem>
-              <SelectItem value="bg-green-500">Green</SelectItem>
-              <SelectItem value="bg-red-500">Red</SelectItem>
-              <SelectItem value="bg-gray-500">Gray</SelectItem>
-              <SelectItem value="bg-transparent">Transparent</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="RGB or Hex"
-            onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ textColor: value })} value={textColor}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Text color" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text-white">White</SelectItem>
+            <SelectItem value="text-gray-900">Black</SelectItem>
+            <SelectItem value="text-blue-500">Blue</SelectItem>
+            <SelectItem value="text-green-500">Green</SelectItem>
+            <SelectItem value="text-red-500">Red</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select onValueChange={(value) => onUpdate({ backgroundColor: value })} value={backgroundColor}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Background color" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="bg-blue-500">Blue</SelectItem>
+            <SelectItem value="bg-green-500">Green</SelectItem>
+            <SelectItem value="bg-red-500">Red</SelectItem>
+            <SelectItem value="bg-gray-500">Gray</SelectItem>
+            <SelectItem value="bg-transparent">Transparent</SelectItem>
+          </SelectContent>
+        </Select>
         <Input
           value={padding}
           onChange={(e) => onUpdate({ padding: e.target.value })}
@@ -988,25 +1014,18 @@ function ButtonComponent({ text, link, font, fontSize, alignment, bold, italic, 
           placeholder="Margin (top right bottom left)"
           className="w-full"
         />
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ width: value })} value={width}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Width" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="w-auto">Auto</SelectItem>
-              <SelectItem value="w-full">Full</SelectItem>
-              <SelectItem value="w-1/2">Half</SelectItem>
-              <SelectItem value="w-1/3">One Third</SelectItem>
-              <SelectItem value="w-2/3">Two Thirds</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="Custom width"
-            onChange={(e) => onUpdate({ width: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ width: value })} value={width}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Width" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="w-auto">Auto</SelectItem>
+            <SelectItem value="w-full">Full</SelectItem>
+            <SelectItem value="w-1/2">Half</SelectItem>
+            <SelectItem value="w-1/3">One Third</SelectItem>
+            <SelectItem value="w-2/3">Two Thirds</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <Button className={`${font} text-${fontSize} ${alignment} ${bold ? 'font-bold' : ''} ${italic ? 'italic' : ''} ${underline ? 'underline' : ''} ${textColor} ${backgroundColor}`} style={{ padding, margin }}>
         {text}
@@ -1125,7 +1144,7 @@ function VideoComponent({ src, width, height, autoplay, muted, defaultSize, cont
       />
       <Input
         value={src}
-        onChange={(e) => onUpdate({ src: e.target.value })}
+        onChange={(e) => onUpdate({  src: e.target.value })}
         placeholder="Video URL"
         className="mb-2"
       />
@@ -1362,23 +1381,16 @@ function FormComponent({ title, subtitle, font, fontSize, alignment, fields, but
         className="mb-2"
       />
       <div className="flex flex-wrap gap-2">
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ font: value })} value={font}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select font" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="font-sans">Sans-serif</SelectItem>
-              <SelectItem value="font-serif">Serif</SelectItem>
-              <SelectItem value="font-mono">Monospace</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="Custom font"
-            onChange={(e) => onUpdate({ font: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ font: value })} value={font}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select font" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="font-sans">Sans-serif</SelectItem>
+            <SelectItem value="font-serif">Serif</SelectItem>
+            <SelectItem value="font-mono">Monospace</SelectItem>
+          </SelectContent>
+        </Select>
         <Input
           type="number"
           value={fontSize}
@@ -1386,23 +1398,16 @@ function FormComponent({ title, subtitle, font, fontSize, alignment, fields, but
           className="w-20"
           placeholder="Font size"
         />
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ alignment: value })} value={alignment}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Alignment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text-left">Left</SelectItem>
-              <SelectItem value="text-center">Center</SelectItem>
-              <SelectItem value="text-right">Right</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="Custom alignment"
-            onChange={(e) => onUpdate({ alignment: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ alignment: value })} value={alignment}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Alignment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text-left">Left</SelectItem>
+            <SelectItem value="text-center">Center</SelectItem>
+            <SelectItem value="text-right">Right</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         {fields.map((field, index) => (
@@ -1450,40 +1455,26 @@ function FormComponent({ title, subtitle, font, fontSize, alignment, fields, but
           onChange={(e) => onUpdate({ buttonText: e.target.value })}
           placeholder="Submit Button Text"
         />
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ buttonColor: value })} value={buttonColor}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Button color" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="bg-blue-500">Blue</SelectItem>
-              <SelectItem value="bg-green-500">Green</SelectItem>
-              <SelectItem value="bg-red-500">Red</SelectItem>
-              <SelectItem value="bg-gray-500">Gray</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="RGB or Hex"
-            onChange={(e) => onUpdate({ buttonColor: e.target.value })}
-          />
-        </div>
-        <div className="flex space-x-2">
-          <Select onValueChange={(value) => onUpdate({ buttonTextColor: value })} value={buttonTextColor}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Button text color" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text-white">White</SelectItem>
-              <SelectItem value="text-black">Black</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="text"
-            placeholder="RGB or Hex"
-            onChange={(e) => onUpdate({ buttonTextColor: e.target.value })}
-          />
-        </div>
+        <Select onValueChange={(value) => onUpdate({ buttonColor: value })} value={buttonColor}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Button color" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="bg-blue-500">Blue</SelectItem>
+            <SelectItem value="bg-green-500">Green</SelectItem>
+            <SelectItem value="bg-red-500">Red</SelectItem>
+            <SelectItem value="bg-gray-500">Gray</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select onValueChange={(value) => onUpdate({ buttonTextColor: value })} value={buttonTextColor}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Button text color" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text-white">White</SelectItem>
+            <SelectItem value="text-black">Black</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   )

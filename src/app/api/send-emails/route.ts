@@ -101,7 +101,7 @@ async function sendEmail({ cnpj, dadosCnpj }: Root) {
   try {
     console.log(`Enviando e-mail para: ${dadosCnpj.email}`);
     const mailOptions = {
-      from: "contato@smartgabinete.com.br",
+      from: '"Smart Gabinete - Um solução completa para seu mandato parlamentar"<contato@smartgabinete.com.br>',
       to: dadosCnpj.email,
       subject: "Faça um mandato com excelência",
       html: htmlTemplate,
