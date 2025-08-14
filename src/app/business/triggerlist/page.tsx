@@ -4,11 +4,39 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Play, Pause, RotateCcw, Mail, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 
 interface EmailLog {
   email: string;
   dataEnvio: string;
   situacao: string;
+}
+
+interface EmailStatus {
+  isPaused: boolean;
+  isSending: boolean;
+  totalSent: number;
+  totalErrors: number;
+  totalPaused: number;
+  statusDetalhado?: string;
+  ultimoEnvioInfo?: {
+    timestamp: string;
+    dataFormatada: string;
+    email: string;
+  };
+  proximoEnvio?: string;
+  tempoRestante?: number;
+  tempoDesdeUltimoEnvio?: number;
+  lastUpdated: string;
+}
+
+interface EmailStats {
+  totalUnicos: number;
+  jaEnviados: number;
+  restantes: number;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -19,6 +47,10 @@ export default function Dashboard() {
   const [totalPages, setTotalPages] = useState(1);
   const [isSending, setIsSending] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [sendingStatus, setSendingStatus] = useState<EmailStatus | null>(null);
+  const [emailStats, setEmailStats] = useState<EmailStats | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const fetchEmailStatus = async () => {
@@ -27,27 +59,72 @@ export default function Dashboard() {
       setEmailStatus(response.data);
       setTotalPages(Math.ceil(response.data.length / ITEMS_PER_PAGE));
     } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao carregar o status dos e-mails.',
-        description: 'Houve um problema ao carregar os dados. Tente novamente.',
-        action: <ToastAction altText="Tentar novamente" onClick={fetchEmailStatus}>Tentar novamente</ToastAction>,
-      });
-      console.error(err);
+      console.error('Erro ao carregar status dos e-mails:', err);
+    }
+  };
+
+  const fetchSendingStatus = async () => {
+    try {
+      const response = await axios.get('/api/get-email-sending-status');
+      const status = response.data;
+      setSendingStatus(status);
+      setIsSending(status.isSending);
+      setIsPaused(status.isPaused);
+    } catch (err) {
+      console.error('Erro ao carregar status do envio:', err);
+    }
+  };
+
+  const fetchEmailStats = async () => {
+    try {
+      const response = await axios.get('/api/get-email-stats');
+      setEmailStats(response.data);
+    } catch (err) {
+      console.error('Erro ao carregar estatísticas de emails:', err);
     }
   };
 
   useEffect(() => {
     fetchEmailStatus();
-    const intervalId = setInterval(fetchEmailStatus, 5000);
+    fetchSendingStatus();
+    fetchEmailStats();
+
+    const intervalId = setInterval(() => {
+      fetchEmailStatus();
+      fetchSendingStatus();
+      fetchEmailStats();
+    }, 5000);
+
     return () => clearInterval(intervalId);
   }, []);
 
+  // Effect para gerenciar countdown
+  useEffect(() => {
+    if (sendingStatus?.tempoRestante && sendingStatus.tempoRestante > 0) {
+      setCountdown(Math.ceil(sendingStatus.tempoRestante / 1000));
+
+      const countdownInterval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev && prev > 0) {
+            return prev - 1;
+          }
+          return null;
+        });
+      }, 1000);
+
+      return () => clearInterval(countdownInterval);
+    } else {
+      setCountdown(null);
+    }
+  }, [sendingStatus?.tempoRestante]);
+
   const handleEmailSending = async (action: 'start' | 'pause' | 'resume') => {
+    setIsLoading(true);
     try {
       const endpoint = action === 'start' ? '/api/send-emails' : action === 'pause' ? '/api/pause-emails' : '/api/resume-emails';
-      await axios.post(endpoint);
+      const response = await axios.post(endpoint);
 
+      // Atualizar status imediatamente
       if (action === 'start') {
         setIsSending(true);
         setIsPaused(false);
@@ -59,19 +136,37 @@ export default function Dashboard() {
         setIsPaused(false);
       }
 
+      // Atualizar dados
+      await fetchSendingStatus();
+      await fetchEmailStatus();
+
+      // Mensagem personalizada baseada na resposta da API
+      let description = response.data.message || `O envio de e-mails foi ${action === 'start' ? 'iniciado' : action === 'pause' ? 'pausado' : 'retomado'} com sucesso.`;
+
+      if (action === 'start' && response.data.status === 'cooldown') {
+        description = `⏰ ${response.data.message}`;
+      } else if (action === 'resume' && response.data.status === 'resumed_no_emails') {
+        description = `Envio retomado! Todos os ${response.data.totalUnicos} emails únicos já foram enviados.`;
+      } else if (action === 'resume' && response.data.emailsRestantes) {
+        description = `Envio retomado! Restam ${response.data.emailsRestantes} emails únicos para enviar (${response.data.jaEnviados} já enviados).`;
+      }
+
       toast({
         variant: 'default',
         title: `Envio de e-mails ${action === 'start' ? 'iniciado' : action === 'pause' ? 'pausado' : 'retomado'}!`,
-        description: `O envio de e-mails foi ${action === 'start' ? 'iniciado' : action === 'pause' ? 'pausado' : 'retomado'} com sucesso.`,
+        description: description,
       });
-    } catch (err) {
+    } catch (err: any) {
+      console.error(`Erro ao ${action} envio:`, err);
+
       toast({
         variant: 'destructive',
         title: `Erro ao ${action === 'start' ? 'iniciar' : action === 'pause' ? 'pausar' : 'retomar'} o envio de e-mails.`,
-        description: 'Houve um problema ao processar a ação. Tente novamente.',
+        description: err.response?.data?.error || 'Houve um problema ao processar a ação. Tente novamente.',
         action: <ToastAction altText="Tentar novamente" onClick={() => handleEmailSending(action)}>Tentar novamente</ToastAction>,
       });
-      console.log(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -81,73 +176,359 @@ export default function Dashboard() {
     }
   };
 
+  const handleCleanDuplicates = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post('/api/clean-duplicate-emails');
+
+      // Atualizar dados após limpeza
+      await fetchEmailStatus();
+
+      toast({
+        variant: 'default',
+        title: 'Emails duplicados removidos!',
+        description: `${response.data.duplicatasRemovidas} entradas duplicadas foram removidas. Total de emails únicos: ${response.data.totalUnicos}`,
+      });
+    } catch (err: any) {
+      console.error('Erro ao limpar emails duplicados:', err);
+
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao limpar emails duplicados',
+        description: err.response?.data?.error || 'Houve um problema ao limpar os emails duplicados. Tente novamente.',
+        action: <ToastAction altText="Tentar novamente" onClick={handleCleanDuplicates}>Tentar novamente</ToastAction>,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const currentLogs = emailStatus.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getStatusText = (status: string) => {
+    const statusMap: { [key: string]: { text: string; color: string; icon: string } } = {
+      'enviando': { text: 'Enviando emails...', color: 'text-blue-600', icon: '📤' },
+      'aguardando_cooldown': { text: 'Aguardando cooldown', color: 'text-orange-600', icon: '⏰' },
+      'pronto_para_enviar': { text: 'Pronto para enviar', color: 'text-green-600', icon: '✅' },
+      'pausado': { text: 'Sistema pausado', color: 'text-gray-600', icon: '⏸️' },
+      'nenhum_envio': { text: 'Nenhum envio realizado', color: 'text-gray-500', icon: '📭' },
+      'sem_log': { text: 'Sem histórico de envios', color: 'text-gray-500', icon: '📋' },
+      'erro_calculo': { text: 'Erro no cálculo', color: 'text-red-600', icon: '⚠️' },
+      'parado': { text: 'Sistema parado', color: 'text-gray-600', icon: '⏹️' }
+    };
+
+    return statusMap[status] || { text: 'Status desconhecido', color: 'text-gray-500', icon: '❓' };
+  };
+
+  const getStatusBadge = (situacao: string) => {
+    if (situacao === "Enviado com sucesso") {
+      return <Badge variant="default" className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" />Enviado</Badge>;
+    } else if (situacao.includes("Erro")) {
+      return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" />Erro</Badge>;
+    } else if (situacao === "Envio pausado") {
+      return <Badge variant="secondary"><Pause className="w-3 h-3 mr-1" />Pausado</Badge>;
+    } else {
+      return <Badge variant="outline">{situacao}</Badge>;
+    }
+  };
 
   return (
     <div className="p-8 font-sans">
-      <h1 className="text-2xl font-semibold mb-4">Dashboard de Envio de E-mails</h1>
-      <button
-        onClick={() => handleEmailSending('start')}
-        disabled={isSending || isPaused}
-        className={`px-4 py-2 text-white rounded-md ${isSending || isPaused ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
-      >
-        {isSending ? (isPaused ? 'Retomar envio de e-mails' : 'Enviando e-mails...') : 'Iniciar envio de e-mails'}
-      </button>
-      <button
-        onClick={() => handleEmailSending('pause')}
-        disabled={!isSending || isPaused}
-        className="ml-4 px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700"
-      >
-        Pausar envio de e-mails
-      </button>
-      <button
-        onClick={() => handleEmailSending('resume')}
-        disabled={!isPaused}
-        className="ml-4 px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
-      >
-        Retomar envio de e-mails
-      </button>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Dashboard de Envio de E-mails</h1>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleEmailSending('start')}
+            disabled={isSending || isPaused || isLoading || (countdown !== null && countdown > 0)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Play className="w-4 h-4 mr-2" />
+            {isLoading ? 'Processando...' : countdown !== null && countdown > 0 ? `Aguardar (${formatTime(countdown)})` : 'Iniciar Envio'}
+          </Button>
 
-      <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">Status dos E-mails Enviados</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-300">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="px-4 py-2 text-left border-b border-gray-300">Email</th>
-                <th className="px-4 py-2 text-left border-b border-gray-300">Data de Envio</th>
-                <th className="px-4 py-2 text-left border-b border-gray-300">Situação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentLogs.map((log, index) => (
-                <tr key={index} className="odd:bg-white even:bg-gray-50">
-                  <td className="px-4 py-2 border-b border-gray-300">{log.email}</td>
-                  <td className="px-4 py-2 border-b border-gray-300">{new Date(log.dataEnvio).toLocaleString()}</td>
-                  <td className="px-4 py-2 border-b border-gray-300">{log.situacao}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4 flex justify-between">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+          <Button
+            onClick={() => handleEmailSending('pause')}
+            disabled={!isSending || isPaused || isLoading}
+            variant="destructive"
           >
-            Anterior
-          </button>
-          <span>Página {currentPage} de {totalPages}</span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+            <Pause className="w-4 h-4 mr-2" />
+            Pausar
+          </Button>
+
+          <Button
+            onClick={() => handleEmailSending('resume')}
+            disabled={!isPaused || isLoading}
+            className="bg-green-600 hover:bg-green-700"
           >
-            Próxima
-          </button>
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Retomar
+          </Button>
+
+          <Button
+            onClick={handleCleanDuplicates}
+            disabled={isLoading}
+            variant="outline"
+            className="border-orange-300 text-orange-600 hover:bg-orange-50"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Limpar Duplicatas
+          </Button>
         </div>
       </div>
+
+      {/* Cards de Status */}
+      {sendingStatus && (
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Status Detalhado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col space-y-2">
+                {sendingStatus?.statusDetalhado && (
+                  <div className="flex items-center">
+                    <span className="text-lg mr-2">
+                      {getStatusText(sendingStatus.statusDetalhado).icon}
+                    </span>
+                    <span className={`text-sm font-medium ${getStatusText(sendingStatus.statusDetalhado).color}`}>
+                      {getStatusText(sendingStatus.statusDetalhado).text}
+                    </span>
+                  </div>
+                )}
+
+                {sendingStatus?.ultimoEnvioInfo && (
+                  <div className="text-xs text-muted-foreground">
+                    <div>Último envio: {sendingStatus.ultimoEnvioInfo.dataFormatada}</div>
+                    <div className="truncate">Email: {sendingStatus.ultimoEnvioInfo.email}</div>
+                  </div>
+                )}
+
+                {sendingStatus?.tempoDesdeUltimoEnvio && (
+                  <div className="text-xs text-muted-foreground">
+                    Há {Math.floor(sendingStatus.tempoDesdeUltimoEnvio / 1000 / 60)} min atrás
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Enviados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center">
+                <Mail className="w-4 h-4 mr-2 text-green-500" />
+                <span className="text-2xl font-bold">{sendingStatus.totalSent}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Erros
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+                <span className="text-2xl font-bold">{sendingStatus.totalErrors}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Pausados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center">
+                <Pause className="w-4 h-4 mr-2 text-orange-500" />
+                <span className="text-2xl font-bold">{sendingStatus.totalPaused}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {emailStats && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Progresso
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-muted-foreground">Restantes</span>
+                    <span className="text-lg font-bold text-blue-600">{emailStats.restantes}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total Únicos</span>
+                    <span className="text-sm font-medium">{emailStats.totalUnicos}</span>
+                  </div>
+                  <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${emailStats.percentualConcluido}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-center mt-1 text-muted-foreground">
+                    {emailStats.percentualConcluido}% concluído
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card de Cooldown */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Próximo Envio
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center">
+                {countdown !== null && countdown > 0 ? (
+                  <>
+                    <div className="text-2xl font-bold text-orange-600 mb-1">
+                      {formatTime(countdown)}
+                    </div>
+                    <div className="text-xs text-center text-muted-foreground">
+                      Aguardando cooldown
+                    </div>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-orange-500 h-2 rounded-full transition-all duration-1000"
+                        style={{
+                          width: `${Math.max(0, ((countdown || 0) / 60) * 100)}%`
+                        }}
+                      ></div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-green-600 mb-1">
+                      Pronto
+                    </div>
+                    <div className="text-xs text-center text-muted-foreground">
+                      Pode enviar
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card de Diagnóstico */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Diagnóstico
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pausado:</span>
+                  <span className={isPaused ? "text-red-600" : "text-green-600"}>
+                    {isPaused ? "Sim" : "Não"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Enviando:</span>
+                  <span className={isSending ? "text-blue-600" : "text-gray-600"}>
+                    {isSending ? "Sim" : "Não"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cooldown:</span>
+                  <span className={countdown !== null && countdown > 0 ? "text-orange-600" : "text-green-600"}>
+                    {countdown !== null && countdown > 0 ? "Ativo" : "Inativo"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Última atualização:</span>
+                  <span className="text-gray-600">
+                    {sendingStatus?.lastUpdated ? new Date(sendingStatus.lastUpdated).toLocaleTimeString('pt-BR') : "N/A"}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Tabela de Logs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Status dos E-mails Enviados</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2 font-medium">Email</th>
+                  <th className="text-left p-2 font-medium">Data de Envio</th>
+                  <th className="text-left p-2 font-medium">Situação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentLogs.map((log, index) => (
+                  <tr key={index} className="border-b hover:bg-gray-50">
+                    <td className="p-2 font-mono text-sm">{log.email}</td>
+                    <td className="p-2 text-sm">
+                      {new Date(log.dataEnvio).toLocaleString('pt-BR')}
+                    </td>
+                    <td className="p-2">
+                      {getStatusBadge(log.situacao)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center mt-4">
+              <Button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                variant="outline"
+                size="sm"
+              >
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                variant="outline"
+                size="sm"
+              >
+                Próxima
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
