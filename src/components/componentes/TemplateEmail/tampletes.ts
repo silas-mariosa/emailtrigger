@@ -1,162 +1,140 @@
 export const htmlTemplate = `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Gabinete - E-mail de Apresentação</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      color: #333;
-      margin: 0;
-      padding: 0;
-      background-color: #f4f4f4;
-    }
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background-color: #ffffff;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .header {
-      background-color: #ffffff;
-      padding: 20px;
-      text-align: center;
-      border-bottom: 4px solid #0057b8; /* Linha em destaque na cor do tema */
-    }
-    .header img {
-      max-width: 200px;
-    }
-    .banner {
-      position: relative;
-      text-align: center;
-      color: white;
-    }
-    .banner img {
-      width: 100%;
-      max-width: 600px;
-      height: auto;
-    }
-    .banner-text {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.6);
-      padding: 10px 20px;
-      border-radius: 8px;
-    }
-    .content {
-      padding: 20px;
-      color: #333;
-      line-height: 1.6;
-    }
-    .content h2 {
-      color: #0057b8;
-      font-size: 22px;
-    }
-    .cta-button {
-      display: inline-block;
-      background-color: #0057b8;
-      color: #ffffff;
-      padding: 12px 24px;
-      border-radius: 5px;
-      text-decoration: none;
-      font-weight: bold;
-      margin: 10px 0;
-    }
-    .features {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-    }
-    .feature {
-      width: 48%;
-      margin-bottom: 20px;
-    }
-    .feature h3 {
-      color: #0057b8;
-      font-size: 18px;
-    }
-    .footer {
-      background-color: #f4f4f4;
-      text-align: center;
-      padding: 20px;
-      font-size: 12px;
-      color: #777;
-    }
-    .footer a {
-      color: #0057b8;
-      text-decoration: none;
-      margin: 0 10px;
-    }
-    .footer a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
+<!-- ===== Smart Gabinete – Email Responsivo ===== -->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f5f7fb;margin:0;padding:0;">
+  <tr>
+    <td align="center" style="padding:16px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;">
+        <!-- Header -->
+        <tr>
+          <td align="center" style="padding:24px 16px 8px;">
+            <a href="https://www.smartgabinete.com.br" target="_blank" style="text-decoration:none;">
+              <img src="https://www.smartgabinete.com.br/_next/image?q=75&url=%2F_next%2Fstatic%2Fmedia%2Flogo500x150.00132659.png&w=1080"
+                   alt="Smart Gabinete" style="display:block;border:0;width:50%;max-width:180px;height:auto;">
+            </a>
+          </td>
+        </tr>
 
-<div class="container">
-  
-  <!-- Cabeçalho com o Logo -->
-  <div class="header">
-    <img src="https://www.smartgabinete.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo500x150.00132659.png&w=640&q=75" alt="Smart Gabinete Logo"> <!-- Logo azul -->
-  </div>
+        <!-- Hero -->
+        <tr>
+          <td align="center" style="padding:8px 16px 0;">
+            <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#4b5563;">
+              ✅ Vários gabinetes ativos usando o Smart Gabinete
+            </p>
+            <h1 style="margin:8px 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.2;color:#1f3b77;">
+              Aumente sua eficiência em 300%
+            </h1>
+            <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.4;color:#374151;">
+              Gerencie seu gabinete de forma inteligente e economize <strong>15h/semana</strong>.
+            </p>
+            <a href="https://www.smartgabinete.com.br" target="_blank"
+               style="display:inline-block;background:#1f3b77;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:16px;padding:12px 20px;border-radius:8px;">
+              Começar teste grátis
+            </a>
+            <p style="margin:10px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6b7280;">
+              Teste por 7 dias • Sem cartão • Sem compromisso
+            </p>
+          </td>
+        </tr>
 
-  <!-- Banner Principal -->
-  <div class="banner">
-    <img src="https://www.smartgabinete.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2FambienteSmartGabinete.d1052391.png&w=828&q=75" alt="Interface do Smart Gabinete">
-    <div class="banner-text">
-      <h2>Simplifique sua gestão, aumente sua produtividade</h2>
-      <p>Experimente o Smart Gabinete com um teste gratuito de 30 dias!</p>
-    </div>
-  </div>
+        <!-- Divider -->
+        <tr>
+          <td style="padding:16px;">
+            <hr style="border:none;border-top:1px solid #e5e7eb;margin:0;">
+          </td>
+        </tr>
 
-  <!-- Conteúdo Principal -->
-  <div class="content">
-    <h2>Descubra os Benefícios do Smart Gabinete</h2>
-    <p>Assista a nossa <a href="https://www.smartgabinete.com.br/apresentacao.mp4" target="_blank">apresentação em vídeo</a> e veja como o Smart Gabinete pode transformar sua gestão de maneira prática e eficiente.</p>
+        <!-- Blocos de valor responsivos -->
+        <tr>
+          <td style="padding:16px;">
+            <h2 style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:20px;color:#111827;">
+              O que você consegue com o Smart Gabinete
+            </h2>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td style="width:100%;padding:8px;">
+                  <div style="background:#f3f6ff;border:1px solid #e0e7ff;border-radius:10px;padding:12px;">
+                    <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#1f3b77;"><strong>📌 Demandas organizadas</strong></p>
+                    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#374151;">
+                      Controle solicitações do mandato, status e responsáveis em poucos cliques.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="width:100%;padding:8px;">
+                  <div style="background:#f3f6ff;border:1px solid #e0e7ff;border-radius:10px;padding:12px;">
+                    <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#1f3b77;"><strong>🔎 Filtros e relatórios</strong></p>
+                    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#374151;">
+                      Segmente por bairro, sexo, idade e gere insights para decisões mais assertivas.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="width:100%;padding:8px;">
+                  <div style="background:#f3f6ff;border:1px solid #e0e7ff;border-radius:10px;padding:12px;">
+                    <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#1f3b77;"><strong>📝 Cadastro fácil</strong></p>
+                    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#374151;">
+                      Página de autocadastro para eleitores: entre na base sem trabalho manual.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="width:100%;padding:8px;">
+                  <div style="background:#f3f6ff;border:1px solid #e0e7ff;border-radius:10px;padding:12px;">
+                    <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#1f3b77;"><strong>📆 Agenda do gabinete</strong></p>
+                    <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#374151;">
+                      Eventos e compromissos centralizados para uma rotina mais ágil.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-    <!-- Recursos -->
-    <div class="features">
-      <div class="feature">
-        <h3>Gestão Centralizada</h3>
-        <p>Todos os dados em um só lugar. Acesse informações rapidamente e tome decisões com mais segurança.</p>
-      </div>
-      <div class="feature">
-        <h3>Relatórios Personalizados</h3>
-        <p>Crie relatórios que atendem às necessidades da sua equipe e melhore sua análise de dados.</p>
-      </div>
-      <div class="feature">
-        <h3>Agenda Integrada</h3>
-        <p>Mantenha suas reuniões e eventos organizados em um calendário fácil de usar.</p>
-      </div>
-      <div class="feature">
-        <h3>Apoio e Suporte Dedicado</h3>
-        <p>Nossa equipe está pronta para ajudar sempre que precisar.</p>
-      </div>
-    </div>
+        <!-- Depoimento -->
+        <tr>
+          <td style="padding:8px 16px 16px;">
+            <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;">
+              <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;">
+                <em>"Reduzi 80% do tempo gasto com planilhas. Agora consigo focar no que realmente importa."</em>
+              </p>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6b7280;">
+                — Vereador em Pouso Alegre/MG
+              </p>
+            </div>
+          </td>
+        </tr>
 
-    <!-- Chamada para Ação -->
-    <p>
-      <a href="https://www.smartgabinete.com.br" target="_blank" class="cta-button">Experimente por 30 dias grátis</a>
-    </p>
-  </div>
+        <!-- CTA final -->
+        <tr>
+          <td align="center" style="padding:16px;">
+            <a href="https://www.smartgabinete.com.br" target="_blank"
+               style="display:inline-block;background:#1f3b77;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:16px;padding:12px 20px;border-radius:8px;">
+              Comece seu teste grátis
+            </a>
+          </td>
+        </tr>
+        
+        <!-- Footer -->
+        <tr>
+          <td align="center" style="padding:16px 24px 24px;background:#0b1533;">
+            <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#cbd5e1;">
+              Dúvidas? Fale com a gente: <a href="mailto:contato@smartgabinete.com.br" style="color:#ffffff;text-decoration:underline;">contato@smartgabinete.com.br</a>
+            </p>
+            <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#94a3b8;">
+              © 2025 Smart Gabinete. Todos os direitos reservados.
+            </p>
+          </td>
+        </tr>
 
-  <!-- Rodapé -->
-  <div class="footer">
-    <p>© 2024 Smart Gabinete. Todos os direitos reservados.</p>
-    <p>
-      <a href="https://www.smartgabinete.com.br/">Página Inicial</a> | 
-      <a href="https://www.smartgabinete.com.br/login">login</a> | 
-      <a href="https://www.smartgabinete.com.br/login/singup">Cadastrar</a>
-    </p>
-  </div>
-</div>
-
-</body>
-</html>
-`
+        <p style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6b7280;margin:12px 0 0;">
+          Não consegue clicar? Copie e cole no navegador: https://www.smartgabinete.com.br
+        </p>
+      </table>
+    </td>
+  </tr>
+</table>
+`;

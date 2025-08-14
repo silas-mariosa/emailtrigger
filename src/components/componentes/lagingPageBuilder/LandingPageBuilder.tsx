@@ -42,7 +42,7 @@ interface Container {
 
 interface HeaderConfig {
   logo: string
-  navItems: { 
+  navItems: {
     label: string
     href: string
     subItems?: { label: string; href: string }[]
@@ -53,14 +53,16 @@ interface HeaderConfig {
 export default function LandingPageBuilder() {
   const [containers, setContainers] = useState<Container[]>([])
   const [headerConfig, setHeaderConfig] = useState<HeaderConfig>({
-    logo: '/placeholder.svg?height=50&width=100',
+    logo: '/logo-placeholder.svg',
     navItems: [
       { label: 'Home', href: '#' },
       { label: 'About', href: '#' },
-      { label: 'Services', href: '#', subItems: [
-        { label: 'Service 1', href: '#' },
-        { label: 'Service 2', href: '#' },
-      ]},
+      {
+        label: 'Services', href: '#', subItems: [
+          { label: 'Service 1', href: '#' },
+          { label: 'Service 2', href: '#' },
+        ]
+      },
       { label: 'Products', href: '#', isList: true },
       { label: 'Contact', href: '#' },
     ]
@@ -97,7 +99,7 @@ export default function LandingPageBuilder() {
 
   const addComponent = (containerIndex: number, type: ComponentType, subContainerIndex?: number) => {
     const newContainers = [...containers]
-    const targetContainer = subContainerIndex !== undefined 
+    const targetContainer = subContainerIndex !== undefined
       ? (newContainers[containerIndex].components[subContainerIndex].props as Container)
       : newContainers[containerIndex]
 
@@ -109,7 +111,7 @@ export default function LandingPageBuilder() {
 
   const updateComponent = (containerIndex: number, componentIndex: number, newProps: any, subContainerIndex?: number) => {
     const newContainers = [...containers]
-    const targetContainer = subContainerIndex !== undefined 
+    const targetContainer = subContainerIndex !== undefined
       ? (newContainers[containerIndex].components[subContainerIndex].props as Container)
       : newContainers[containerIndex]
 
@@ -122,7 +124,7 @@ export default function LandingPageBuilder() {
 
   const removeComponent = (containerIndex: number, componentIndex: number, subContainerIndex?: number) => {
     const newContainers = [...containers]
-    const targetContainer = subContainerIndex !== undefined 
+    const targetContainer = subContainerIndex !== undefined
       ? (newContainers[containerIndex].components[subContainerIndex].props as Container)
       : newContainers[containerIndex]
 
@@ -132,7 +134,7 @@ export default function LandingPageBuilder() {
 
   const updateContainerConfig = (containerIndex: number, newConfig: Partial<ContainerConfig>, subContainerIndex?: number) => {
     const newContainers = [...containers]
-    const targetContainer = subContainerIndex !== undefined 
+    const targetContainer = subContainerIndex !== undefined
       ? (newContainers[containerIndex].components[subContainerIndex].props as Container)
       : newContainers[containerIndex]
 
@@ -146,13 +148,13 @@ export default function LandingPageBuilder() {
   const getDefaultProps = (type: ComponentType) => {
     switch (type) {
       case 'paragraph':
-        return { 
-          content: 'Enter your text here', 
-          font: 'font-sans', 
-          fontSize: 16, 
-          alignment: 'text-left', 
-          bold: false, 
-          italic: false, 
+        return {
+          content: 'Enter your text here',
+          font: 'font-sans',
+          fontSize: 16,
+          alignment: 'text-left',
+          bold: false,
+          italic: false,
           underline: false,
           textColor: 'text-gray-900',
           backgroundColor: 'bg-transparent',
@@ -160,14 +162,14 @@ export default function LandingPageBuilder() {
           margin: '0px 0px 0px 0px',
         }
       case 'button':
-        return { 
-          text: 'Click me', 
-          link: '#', 
-          font: 'font-sans', 
-          fontSize: 16, 
-          alignment: 'text-center', 
-          bold: false, 
-          italic: false, 
+        return {
+          text: 'Click me',
+          link: '#',
+          font: 'font-sans',
+          fontSize: 16,
+          alignment: 'text-center',
+          bold: false,
+          italic: false,
           underline: false,
           textColor: 'text-white',
           backgroundColor: 'bg-blue-500',
@@ -176,43 +178,43 @@ export default function LandingPageBuilder() {
           width: 'w-auto',
         }
       case 'image':
-        return { 
-          src: '/placeholder.svg?height=200&width=300', 
-          alt: 'Placeholder image', 
-          width: 300, 
-          height: 200, 
+        return {
+          src: '/placeholder.svg',
+          alt: 'Placeholder image',
+          width: 300,
+          height: 200,
           opacity: 100,
           objectFit: 'object-cover',
         }
       case 'video':
-        return { 
-          src: 'https://example.com/video.mp4', 
-          width: 640, 
-          height: 360, 
-          autoplay: false, 
-          muted: false, 
+        return {
+          src: 'https://example.com/video.mp4',
+          width: 640,
+          height: 360,
+          autoplay: false,
+          muted: false,
           defaultSize: true,
           controls: true,
         }
       case 'carousel':
-        return { 
-          items: [{ image: '/placeholder.svg?height=200&width=300', text: '', link: '', buttonText: '' }], 
-          slideCount: 1, 
-          showText: false, 
-          showLinks: false, 
-          showButtons: false, 
+        return {
+          items: [{ image: '/placeholder.svg', text: '', link: '', buttonText: '' }],
+          slideCount: 1,
+          showText: false,
+          showLinks: false,
+          showButtons: false,
           isCardType: false,
           autoPlay: false,
           interval: 3000,
           visibleSlides: 1,
         }
       case 'form':
-        return { 
-          title: 'Contact Us', 
-          subtitle: 'Fill out the form below', 
-          font: 'font-sans', 
-          fontSize: 16, 
-          alignment: 'text-left', 
+        return {
+          title: 'Contact Us',
+          subtitle: 'Fill out the form below',
+          font: 'font-sans',
+          fontSize: 16,
+          alignment: 'text-left',
           fields: [{ label: 'Email', type: 'email' }],
           buttonText: 'Submit',
           buttonColor: 'bg-blue-500',
@@ -301,7 +303,7 @@ export default function LandingPageBuilder() {
 
 function ContainerComponent({ container, containerIndex, onAddComponent, onUpdateComponent, onRemoveComponent, onUpdateConfig, onAddSubContainer }: { container: Container, containerIndex: number, onAddComponent: (type: ComponentType) => void, onUpdateComponent: (componentIndex: number, newProps: any) => void, onRemoveComponent: (componentIndex: number) => void, onUpdateConfig: (newConfig: Partial<ContainerConfig>) => void, onAddSubContainer: () => void }) {
   return (
-    <div 
+    <div
       className={`mb-8 p-4 border border-dashed border-gray-300 rounded-lg ${container.config.backgroundColor}`}
       style={{
         backgroundImage: container.config.backgroundImage ? `url(${container.config.backgroundImage})` : 'none',
@@ -342,7 +344,7 @@ function ContainerComponent({ container, containerIndex, onAddComponent, onUpdat
                 onUpdateComponent={(subComponentIndex, newProps) => onUpdateComponent(componentIndex, { components: component.props.components.map((c: any, i: number) => i === subComponentIndex ? { ...c, props: { ...c.props, ...newProps } } : c) })}
                 onRemoveComponent={(subComponentIndex) => onUpdateComponent(componentIndex, { components: component.props.components.filter((_: any, i: number) => i !== subComponentIndex) })}
                 onUpdateConfig={(newConfig) => onUpdateComponent(componentIndex, { config: { ...component.props.config, ...newConfig } })}
-                onAddSubContainer={() => {}}
+                onAddSubContainer={() => { }}
               />
             ) : (
               <ComponentRenderer
@@ -360,11 +362,11 @@ function ContainerComponent({ container, containerIndex, onAddComponent, onUpdat
 function Header({ config, onConfigUpdate }: { config: HeaderConfig; onConfigUpdate: (newConfig: HeaderConfig) => void }) {
   return (
     <header className="bg-primary text-primary-foreground p-4 flex justify-between items-center">
-      <Image src={config.logo} alt="Logo" className="h-8" />
+      <Image src={config.logo} alt="Logo" width={100} height={50} className="h-8" />
       <nav>
         {config.navItems.map((item, index) => (
           item.subItems ? (
-            
+
             <Popover key={index}>
               <PopoverTrigger asChild>
                 <Button variant="ghost" className="mx-1">
@@ -1185,7 +1187,7 @@ function VideoComponent({ src, width, height, autoplay, muted, defaultSize, cont
 
 function CarouselComponent({ items, slideCount, showText, showLinks, showButtons, isCardType, autoPlay, interval, visibleSlides, onUpdate }: { items: any[]; slideCount: number; showText: boolean; showLinks: boolean; showButtons: boolean; isCardType: boolean; autoPlay: boolean; interval: number; visibleSlides: number; onUpdate: (newProps: any) => void }) {
   const addSlide = () => {
-    const newItems = [...items, { image: '/placeholder.svg?height=200&width=300', text: '', link: '', buttonText: '' }]
+    const newItems = [...items, { image: '/placeholder.svg', text: '', link: '', buttonText: '' }]
     onUpdate({ items: newItems, slideCount: Math.min(newItems.length, slideCount + 1) })
   }
 
@@ -1591,8 +1593,8 @@ function LandingPagePreview({ headerConfig, containers }: { headerConfig: Header
         </nav>
       </header>
       {containers.map((container, containerIndex) => (
-        <div 
-          key={containerIndex} 
+        <div
+          key={containerIndex}
           className={`p-4 ${container.config.backgroundColor} ${container.config.width} ${container.config.height}`}
           style={{
             backgroundImage: container.config.backgroundImage ? `url(${container.config.backgroundImage})` : 'none',
@@ -1686,11 +1688,11 @@ function PreviewButton({ text, link, font, fontSize, alignment, bold, italic, un
 
 function PreviewImage({ src, alt, width, height, opacity, objectFit }: { src: string; alt: string; width: number; height: number; opacity: number; objectFit: string }) {
   return (
-    <img 
-      src={src} 
-      alt={alt} 
-      style={{ width, height, opacity: opacity / 100 }} 
-      className={`max-w-full h-auto ${objectFit}`} 
+    <img
+      src={src}
+      alt={alt}
+      style={{ width, height, opacity: opacity / 100 }}
+      className={`max-w-full h-auto ${objectFit}`}
     />
   )
 }
@@ -1797,7 +1799,7 @@ function PreviewTable({ rows, columns, headers, data, striped, hoverable, border
 
 function PreviewContainer({ components, config }: { components: Component[]; config: ContainerConfig }) {
   return (
-    <div 
+    <div
       className={`p-4 ${config.backgroundColor} ${config.width} ${config.height}`}
       style={{
         backgroundImage: config.backgroundImage ? `url(${config.backgroundImage})` : 'none',
