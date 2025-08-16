@@ -11,10 +11,15 @@ const statusFilePath = path.join(
 
 export async function POST() {
   try {
-    // Atualizar status para retomado
+    // Atualizar status para retomado (limpar informações de pausa automática)
     fs.writeFileSync(
       statusFilePath,
-      JSON.stringify({ isPaused: false }),
+      JSON.stringify({
+        isPaused: false,
+        pauseReason: null,
+        pausedAt: null,
+        lastUpdated: new Date().toISOString(),
+      }),
       "utf-8"
     );
 

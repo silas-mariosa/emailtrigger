@@ -19,20 +19,36 @@ export async function GET() {
   try {
     // Verificar status de pausa
     let isPaused = false;
+    let pauseReason = null;
+    let pausedAt = null;
+
     if (fs.existsSync(statusFilePath)) {
       try {
         const fileContent = fs.readFileSync(statusFilePath, "utf-8");
         const statusData = JSON.parse(fileContent);
         isPaused = statusData.isPaused === true;
+        pauseReason = statusData.pauseReason || null;
+        pausedAt = statusData.pausedAt || null;
       } catch (parseError) {
         console.error("Erro ao fazer parse do arquivo de status:", parseError);
         // Se houver erro no parse, recriar o arquivo com valores padrão
         fs.writeFileSync(
           statusFilePath,
-          JSON.stringify({ isPaused: false }, null, 2),
+          JSON.stringify(
+            {
+              isPaused: false,
+              pauseReason: null,
+              pausedAt: null,
+              lastUpdated: new Date().toISOString(),
+            },
+            null,
+            2
+          ),
           "utf-8"
         );
         isPaused = false;
+        pauseReason = null;
+        pausedAt = null;
       }
     }
 
@@ -144,6 +160,8 @@ export async function GET() {
       proximoEnvio,
       tempoRestante,
       tempoDesdeUltimoEnvio,
+      pauseReason,
+      pausedAt,
       lastUpdated: new Date().toISOString(),
     });
   } catch (error) {

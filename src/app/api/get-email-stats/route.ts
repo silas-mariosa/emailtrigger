@@ -15,8 +15,12 @@ const emailLogPath = path.join(
   "emailsEnviados.json"
 );
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Obter parâmetros da URL
+    const { searchParams } = new URL(request.url);
+    const estadoFiltro = searchParams.get("estado");
+
     // Verificar se os arquivos existem
     if (!fs.existsSync(candidatosPath)) {
       return NextResponse.json({
@@ -57,6 +61,13 @@ export async function GET() {
       }
     }
 
+    // Filtrar candidatos por estado se especificado
+    if (estadoFiltro) {
+      candidatos = candidatos.filter(
+        (candidato: any) => candidato.dadosCnpj.estado === estadoFiltro
+      );
+    }
+
     // Calcular emails únicos dos candidatos
     const emailsUnicos = new Set<string>();
     for (const candidato of candidatos) {
@@ -79,6 +90,7 @@ export async function GET() {
       totalUnicos,
       jaEnviados,
       restantes,
+      estadoFiltro: estadoFiltro || null,
       percentualConcluido:
         totalUnicos > 0 ? Math.round((jaEnviados / totalUnicos) * 100) : 0,
     });

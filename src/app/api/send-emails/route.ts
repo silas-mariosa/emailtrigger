@@ -43,11 +43,14 @@ export interface EmailLog {
   optOut?: boolean;
 }
 
-// Configurações anti-spam melhoradas
-const EMAIL_BATCH_SIZE = 5; // Reduzido para evitar spam
-const BATCH_DELAY = 60000; // 1 minuto entre lotes
-const DAILY_LIMIT = 100; // Limite diário de envios
+// Configurações baseadas nos limites da Hostinger
+const EMAIL_BATCH_SIZE = 10; // Lotes de 10 emails (dentro do limite de 100 destinatários)
+const BATCH_DELAY = 300000; // 5 minutos entre lotes (para respeitar limite diário)
+const DAILY_LIMIT = 3000; // Limite diário da Hostinger: 3.000 emails em 24 horas
 const WARM_UP_DAYS = 7; // Período de warm-up
+const MAX_RECIPIENTS_PER_EMAIL = 100; // Limite da Hostinger: 100 destinatários por email
+const MAX_EMAIL_SIZE = 35; // Limite da Hostinger: 35 MB por email
+const MAX_ATTACHMENT_SIZE = 25; // Limite da Hostinger: 25 MB por anexo
 
 const emailLogPath = path.join(
   process.cwd(),
@@ -88,7 +91,77 @@ function isEmailSendingPaused(): boolean {
   }
 }
 
-// Configuração SMTP melhorada com autenticação adequada
+// Função para pausar o envio automaticamente
+function pauseEmailSending(reason: string) {
+  try {
+    const statusData = {
+      isPaused: true,
+      pauseReason: reason,
+      pausedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+    };
+
+    fs.writeFileSync(
+      statusFilePath,
+      JSON.stringify(statusData, null, 2),
+      "utf-8"
+    );
+    console.log(
+      `🚨 [PAUSA AUTOMÁTICA] Sistema pausado automaticamente: ${reason}`
+    );
+  } catch (error) {
+    console.error("Erro ao pausar envio automaticamente:", error);
+  }
+}
+
+// Função para detectar situações críticas que comprometem a integridade do domínio
+function detectCriticalIssues(
+  situacao: string,
+  errorMessage?: string
+): boolean {
+  const criticalSituations = [
+    "Limite diário atingido",
+    "Limite diário da Hostinger atingido",
+    "Daily limit reached",
+    "Quota exceeded",
+    "Rate limit exceeded",
+    "Too many requests",
+    "Account suspended",
+    "Domain blocked",
+    "Spam detected",
+    "Bounce rate too high",
+    "Complaint rate too high",
+  ];
+
+  const criticalErrors = [
+    "bounce",
+    "invalid",
+    "blocked",
+    "suspended",
+    "quota",
+    "limit",
+    "rate limit",
+    "spam",
+    "complaint",
+    "reputation",
+  ];
+
+  // Verificar situações críticas
+  const isCriticalSituation = criticalSituations.some((situation) =>
+    situacao.toLowerCase().includes(situation.toLowerCase())
+  );
+
+  // Verificar erros críticos
+  const isCriticalError =
+    errorMessage &&
+    criticalErrors.some((error) =>
+      errorMessage.toLowerCase().includes(error.toLowerCase())
+    );
+
+  return isCriticalSituation || isCriticalError;
+}
+
+// Configuração SMTP otimizada para limites da Hostinger
 const transporter = nodemailer.createTransport({
   host: "smtp.hostinger.com",
   port: 465,
@@ -98,10 +171,10 @@ const transporter = nodemailer.createTransport({
     pass: process.env.PASSWORD,
   },
   pool: true,
-  maxConnections: 3, // Reduzido para evitar sobrecarga
-  maxMessages: 20, // Reduzido para melhor controle
-  rateLimit: 5, // Máximo 5 e-mails por segundo
-  rateDelta: 1000, // 1 segundo entre envios
+  maxConnections: 5, // Aumentado para melhor performance
+  maxMessages: 50, // Aumentado para lotes maiores
+  rateLimit: 10, // Máximo 10 e-mails por segundo (dentro dos limites)
+  rateDelta: 100, // 100ms entre envios
   // Headers anti-spam
   headers: {
     "List-Unsubscribe": "<mailto:unsubscribe@smartgabinete.com.br>",
@@ -125,7 +198,7 @@ function isOptedOut(email: string): boolean {
   return optOutList.includes(email);
 }
 
-// Função para verificar limite diário
+// Função para verificar limite diário da Hostinger
 function checkDailyLimit(): boolean {
   try {
     if (!fs.existsSync(emailLogPath)) return true;
@@ -137,7 +210,23 @@ function checkDailyLimit(): boolean {
       log.dataEnvio.startsWith(today)
     );
 
-    return todayEmails.length < DAILY_LIMIT;
+    const emailsEnviadosHoje = todayEmails.length;
+    const limiteRestante = DAILY_LIMIT - emailsEnviadosHoje;
+
+    console.log(
+      `📊 [LIMITE] Emails enviados hoje: ${emailsEnviadosHoje}/${DAILY_LIMIT}`
+    );
+    console.log(`📊 [LIMITE] Limite restante: ${limiteRestante}`);
+
+    // Se atingiu o limite, pausar automaticamente
+    if (emailsEnviadosHoje >= DAILY_LIMIT) {
+      pauseEmailSending(
+        `Limite diário da Hostinger atingido (${emailsEnviadosHoje}/${DAILY_LIMIT} emails)`
+      );
+      return false;
+    }
+
+    return true;
   } catch (error) {
     console.error("Erro ao verificar limite diário:", error);
     return true;
@@ -293,11 +382,18 @@ async function sendEmail({ cnpj, dadosCnpj }: Root) {
   }
 
   if (!checkDailyLimit()) {
-    console.log(`Limite diário atingido. E-mail ${email} não será enviado.`);
+    const situacao = "Limite diário da Hostinger atingido";
+    console.log(`🚨 ${situacao}. E-mail ${email} não será enviado.`);
+
+    // Detectar se é uma situação crítica
+    if (detectCriticalIssues(situacao)) {
+      pauseEmailSending(situacao);
+    }
+
     logEmail({
       email: email,
       dataEnvio: new Date().toISOString(),
-      situacao: "Limite diário atingido",
+      situacao: situacao,
     });
     return;
   }
@@ -338,10 +434,20 @@ async function sendEmail({ cnpj, dadosCnpj }: Root) {
   } catch (error) {
     console.error(`Erro ao enviar e-mail para ${email}:`, error);
 
-    const errorMessage = (error as Error).message.toLowerCase();
+    const errorMessage = (error as Error).message;
+    const situacao = `Erro: ${errorMessage}`;
+
+    // Detectar se é uma situação crítica que compromete a integridade do domínio
+    if (detectCriticalIssues(situacao, errorMessage)) {
+      console.log(`🚨 [CRÍTICO] Situação crítica detectada: ${errorMessage}`);
+      pauseEmailSending(`Erro crítico detectado: ${errorMessage}`);
+    }
 
     // Adicionar à lista de bounce se for um erro permanente
-    if (errorMessage.includes("bounce") || errorMessage.includes("invalid")) {
+    if (
+      errorMessage.toLowerCase().includes("bounce") ||
+      errorMessage.toLowerCase().includes("invalid")
+    ) {
       let bounceList = [];
       if (fs.existsSync(bounceListPath)) {
         bounceList = JSON.parse(fs.readFileSync(bounceListPath, "utf-8"));
@@ -359,9 +465,10 @@ async function sendEmail({ cnpj, dadosCnpj }: Root) {
     logEmail({
       email: email,
       dataEnvio: new Date().toISOString(),
-      situacao: `Erro: ${(error as Error).message}`,
+      situacao: situacao,
       bounce:
-        errorMessage.includes("bounce") || errorMessage.includes("invalid"),
+        errorMessage.toLowerCase().includes("bounce") ||
+        errorMessage.toLowerCase().includes("invalid"),
     });
     throw error;
   }
@@ -451,12 +558,12 @@ async function sendEmailsInBatches(emails: Root[]) {
           } enviado com sucesso`
         );
 
-        // Delay entre e-mails individuais
+        // Delay entre e-mails individuais (otimizado para Hostinger)
         if (j < batch.length - 1) {
           console.log(
-            `⏳ [LOTE ${numeroLote}] Aguardando 2 segundos antes do próximo email...`
+            `⏳ [LOTE ${numeroLote}] Aguardando 1 segundo antes do próximo email...`
           );
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
 
@@ -484,10 +591,14 @@ async function sendEmailsInBatches(emails: Root[]) {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     console.log("🚀 [ENVIO] Iniciando o processo de envio de e-mails");
     console.log("📅 [ENVIO] Data/Hora:", new Date().toLocaleString("pt-BR"));
+
+    // Obter parâmetros da requisição
+    const body = await request.json().catch(() => ({}));
+    const estadoFiltro = body.estado || null;
 
     // Limpar entradas duplicadas no log antes de iniciar
     console.log("🧹 [ENVIO] Limpando entradas duplicadas no log...");
@@ -531,13 +642,35 @@ export async function POST() {
     const fileContent = fs.readFileSync(filePath, "utf-8");
     const emails = JSON.parse(fileContent);
 
-    await sendEmailsInBatches(emails);
+    // Filtrar por estado se especificado
+    let emailsFiltrados = emails;
+    if (estadoFiltro) {
+      emailsFiltrados = emails.filter(
+        (candidato: Root) => candidato.dadosCnpj.estado === estadoFiltro
+      );
+      console.log(`🗺️ [FILTRO] Filtrando por estado: ${estadoFiltro}`);
+      console.log(
+        `📊 [FILTRO] Total de candidatos no estado ${estadoFiltro}: ${emailsFiltrados.length}`
+      );
+    }
+
+    await sendEmailsInBatches(emailsFiltrados);
 
     return NextResponse.json({
-      message: "Processo de envio de e-mails iniciado",
-      totalEmails: emails.length,
+      message: estadoFiltro
+        ? `Processo de envio de e-mails iniciado para o estado ${estadoFiltro}`
+        : "Processo de envio de e-mails iniciado",
+      totalEmails: emailsFiltrados.length,
+      estadoFiltro: estadoFiltro,
       batchSize: EMAIL_BATCH_SIZE,
       dailyLimit: DAILY_LIMIT,
+      hostingerLimits: {
+        dailyLimit: DAILY_LIMIT,
+        batchDelay: BATCH_DELAY / 1000,
+        maxRecipients: MAX_RECIPIENTS_PER_EMAIL,
+        maxEmailSize: MAX_EMAIL_SIZE,
+        maxAttachmentSize: MAX_ATTACHMENT_SIZE,
+      },
     });
   } catch (error) {
     console.error("Erro ao enviar e-mails:", error);

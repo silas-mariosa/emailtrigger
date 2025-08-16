@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, RotateCcw, Mail, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, Pause, RotateCcw, Mail, AlertCircle, CheckCircle, Trash2, MapPin } from 'lucide-react';
 
 interface EmailLog {
   email: string;
@@ -30,6 +31,8 @@ interface EmailStatus {
   proximoEnvio?: string;
   tempoRestante?: number;
   tempoDesdeUltimoEnvio?: number;
+  pauseReason?: string | null;
+  pausedAt?: string | null;
   lastUpdated: string;
 }
 
@@ -37,6 +40,21 @@ interface EmailStats {
   totalUnicos: number;
   jaEnviados: number;
   restantes: number;
+  estadoFiltro?: string | null;
+  percentualConcluido?: number;
+}
+
+interface HostingerLimits {
+  dailyLimit: number;
+  batchDelay: number;
+  maxRecipients: number;
+  maxEmailSize: number;
+  maxAttachmentSize: number;
+}
+
+interface Estado {
+  estados: string[];
+  totalEstados: number;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -51,6 +69,8 @@ export default function Dashboard() {
   const [emailStats, setEmailStats] = useState<EmailStats | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [estados, setEstados] = useState<Estado | null>(null);
+  const [estadoSelecionado, setEstadoSelecionado] = useState<string>('todos');
   const { toast } = useToast();
 
   const fetchEmailStatus = async () => {
@@ -75,9 +95,21 @@ export default function Dashboard() {
     }
   };
 
+  const fetchEstados = async () => {
+    try {
+      const response = await axios.get('/api/get-estados');
+      setEstados(response.data);
+    } catch (err) {
+      console.error('Erro ao carregar estados:', err);
+    }
+  };
+
   const fetchEmailStats = async () => {
     try {
-      const response = await axios.get('/api/get-email-stats');
+      const url = estadoSelecionado && estadoSelecionado !== 'todos'
+        ? `/api/get-email-stats?estado=${encodeURIComponent(estadoSelecionado)}`
+        : '/api/get-email-stats';
+      const response = await axios.get(url);
       setEmailStats(response.data);
     } catch (err) {
       console.error('Erro ao carregar estatísticas de emails:', err);
@@ -87,6 +119,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchEmailStatus();
     fetchSendingStatus();
+    fetchEstados();
     fetchEmailStats();
 
     const intervalId = setInterval(() => {
@@ -96,7 +129,7 @@ export default function Dashboard() {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [estadoSelecionado]);
 
   // Effect para gerenciar countdown
   useEffect(() => {
@@ -122,7 +155,14 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       const endpoint = action === 'start' ? '/api/send-emails' : action === 'pause' ? '/api/pause-emails' : '/api/resume-emails';
-      const response = await axios.post(endpoint);
+
+      let response;
+      if (action === 'start') {
+        const data = estadoSelecionado && estadoSelecionado !== 'todos' ? { estado: estadoSelecionado } : {};
+        response = await axios.post(endpoint, data);
+      } else {
+        response = await axios.post(endpoint);
+      }
 
       // Atualizar status imediatamente
       if (action === 'start') {
@@ -282,9 +322,50 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Seletor de Estado */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-gray-600" />
+            <span className="font-medium text-gray-700">Filtrar por Estado:</span>
+          </div>
+
+          <Select value={estadoSelecionado} onValueChange={setEstadoSelecionado}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Selecione um estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os Estados</SelectItem>
+              {estados?.estados.map((estado) => (
+                <SelectItem key={estado} value={estado}>
+                  {estado}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {estadoSelecionado && estadoSelecionado !== 'todos' && (
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              Estado: {estadoSelecionado}
+            </Badge>
+          )}
+        </div>
+
+        {estados && (
+          <div className="mt-2 text-sm text-gray-600">
+            Total de estados disponíveis: {estados.totalEstados}
+            {estadoSelecionado && estadoSelecionado !== 'todos' && emailStats && (
+              <span className="ml-4">
+                • Candidatos no estado {estadoSelecionado}: {emailStats.totalUnicos}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Cards de Status */}
       {sendingStatus && (
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
+        <div className={`grid grid-cols-1 md:grid-cols-${sendingStatus?.pauseReason ? '9' : '8'} gap-4 mb-6`}>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -366,7 +447,7 @@ export default function Dashboard() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Progresso
+                  Progresso{estadoSelecionado && estadoSelecionado !== 'todos' ? ` - ${estadoSelecionado}` : ''}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -387,6 +468,11 @@ export default function Dashboard() {
                   </div>
                   <div className="text-xs text-center mt-1 text-muted-foreground">
                     {emailStats.percentualConcluido}% concluído
+                    {estadoSelecionado && estadoSelecionado !== 'todos' && (
+                      <span className="block text-blue-600 font-medium">
+                        Estado: {estadoSelecionado}
+                      </span>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -465,6 +551,65 @@ export default function Dashboard() {
                   <span className="text-gray-600">
                     {sendingStatus?.lastUpdated ? new Date(sendingStatus.lastUpdated).toLocaleTimeString('pt-BR') : "N/A"}
                   </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card de Pausa Automática */}
+          {sendingStatus?.pauseReason && (
+            <Card className="border-red-200 bg-red-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-red-700">
+                  🚨 Pausa Automática
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col space-y-2 text-xs">
+                  <div className="text-red-700 font-medium">
+                    {sendingStatus.pauseReason}
+                  </div>
+                  {sendingStatus.pausedAt && (
+                    <div className="text-red-600">
+                      Pausado em: {new Date(sendingStatus.pausedAt).toLocaleString('pt-BR')}
+                    </div>
+                  )}
+                  <div className="text-red-600 text-xs">
+                    Sistema pausado automaticamente para proteger a integridade do domínio
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card de Limites da Hostinger */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                📧 Limites Hostinger
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Limite diário:</span>
+                  <span className="text-blue-600 font-medium">3.000 emails</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Destinatários/email:</span>
+                  <span className="text-blue-600 font-medium">100</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tamanho email:</span>
+                  <span className="text-blue-600 font-medium">35 MB</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tamanho anexo:</span>
+                  <span className="text-blue-600 font-medium">25 MB</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cooldown:</span>
+                  <span className="text-orange-600 font-medium">5 min</span>
                 </div>
               </div>
             </CardContent>
